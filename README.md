@@ -1,7 +1,7 @@
 # rust kafka-like
 
 ⚠️⚠️⚠️<br>
-This is a toy I created to play with Rust and kubernetes. Please note that it lacks many features that are Production Ready<br>
+This is a toy I created to play with Rust. Please note that it lacks many features that are Production Ready<br>
 ⚠️⚠️⚠️
 
 This is a Rust implementation of a distributed messaging system. It uses a simple design inspired by Apache Kafka. It simply records messages to local files.
