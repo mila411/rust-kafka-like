@@ -57,7 +57,7 @@ broker.subscribe("test_topic", Box::new(|message, ack| {
 1. Partition Replication
 1. Improvements in fault detection and automatic recovery
 
-### ライセンス
+### License
 
 MIT
 
