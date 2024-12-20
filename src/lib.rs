@@ -4,15 +4,15 @@ use std::fmt;
 use std::fs::{File, OpenOptions};
 use std::io::{self, Write};
 use std::sync::{
-    Arc, Mutex,
     atomic::{AtomicU64, Ordering},
-    mpsc::{Receiver, Sender, channel},
+    mpsc::{channel, Receiver, Sender},
+    Arc, Mutex,
 };
 use std::thread;
 use std::time::Duration;
 
 #[derive(Debug)]
-enum BrokerError {
+pub enum BrokerError {
     IoError(io::Error),
     LockError(String),
     TopicError(String),
@@ -25,14 +25,14 @@ enum BrokerError {
 }
 
 #[derive(Debug, Clone)]
-struct MessageAck {
-    message_id: u64,
-    topic: String,
-    status: AckStatus,
+pub struct MessageAck {
+    pub message_id: u64,
+    pub topic: String,
+    pub status: AckStatus,
 }
 
 #[derive(Debug, Clone)]
-enum AckStatus {
+pub enum AckStatus {
     Success,
     Failed(String),
 }
@@ -74,7 +74,7 @@ struct Topic {
     subscribers: Vec<Subscriber>,
 }
 
-struct Broker {
+pub struct Broker {
     id: String,
     state: BrokerState,
     topics: HashMap<String, Topic>,
@@ -93,7 +93,7 @@ enum BrokerState {
 }
 
 impl Broker {
-    fn new(
+    pub fn new(
         id: String,
         log_dir: &str,
         default_partitions: usize,
@@ -118,7 +118,7 @@ impl Broker {
         })
     }
 
-    fn create_topic(
+    pub fn create_topic(
         &mut self,
         name: &str,
         num_partitions: Option<usize>,
@@ -147,16 +147,19 @@ impl Broker {
             });
         }
 
-        self.topics.insert(name.to_string(), Topic {
-            name: name.to_string(),
-            partitions,
-            subscribers: Vec::new(),
-        });
+        self.topics.insert(
+            name.to_string(),
+            Topic {
+                name: name.to_string(),
+                partitions,
+                subscribers: Vec::new(),
+            },
+        );
 
         Ok(())
     }
 
-    fn subscribe(&mut self, topic_name: &str, callback: Subscriber) -> Result<(), BrokerError> {
+    pub fn subscribe(&mut self, topic_name: &str, callback: Subscriber) -> Result<(), BrokerError> {
         let topic = self
             .topics
             .get_mut(topic_name)
@@ -166,7 +169,7 @@ impl Broker {
         Ok(())
     }
 
-    fn publish_with_ack(
+    pub fn publish_with_ack(
         &self,
         topic_name: &str,
         message: String,
@@ -248,22 +251,20 @@ impl Broker {
         hasher.finish() as usize
     }
 
-    fn start_health_check(&self) {
+   pub fn start_health_check(&self) {
         let peers = self.peers.clone();
         let is_active = Arc::clone(&self.is_active);
 
-        thread::spawn(move || {
-            loop {
-                for peer in &peers {
-                    if let Err(_) = Self::check_peer_health(peer) {
-                        println!("Detecting peer problems: {}", peer);
-                        if let Ok(mut active) = is_active.lock() {
-                            *active = false;
-                        }
+        thread::spawn(move || loop {
+            for peer in &peers {
+                if let Err(_) = Self::check_peer_health(peer) {
+                    println!("Detecting peer problems: {}", peer);
+                    if let Ok(mut active) = is_active.lock() {
+                        *active = false;
                     }
                 }
-                thread::sleep(Duration::from_secs(5));
             }
+            thread::sleep(Duration::from_secs(5));
         });
     }
 

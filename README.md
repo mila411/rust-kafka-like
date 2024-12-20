@@ -65,3 +65,11 @@ MIT
 
 - main.rs: Main implementation
 - logs: Persistent Message Directory
+
+### Examples
+
+To execute a basic example, use the following command:
+
+```bash
+cargo run --example send-recv-example
+```
