@@ -3,4 +3,12 @@ name = "rufka"
 version = "0.1.0"
 edition = "2024"
 
+[lib]
+name = "rust_kafka_like"
+path = "src/lib.rs"
+
+[[example]]
+name = "send-recv-example"
+path = "examples/send-recv-example.rs"
+
 [dependencies]
