@@ -105,9 +105,12 @@ mod tests {
         let mut broker = Broker::new("broker1", 3, 2);
         broker.create_topic("test_topic", None).unwrap();
 
-        let subscriber: Subscriber = Box::new(|msg: String| {
-            println!("Received message: {}", msg);
-        });
+        let subscriber = Subscriber::new(
+            "test_sub",
+            Box::new(|msg: String| {
+                println!("Received message: {}", msg);
+            }),
+        );
         broker.subscribe("test_topic", subscriber).unwrap();
 
         let ack = broker

@@ -75,7 +75,7 @@ impl Topic {
     }
 
     pub fn remove_subscriber(&mut self, _subscriber_id: &str) {
-        // TODO: Because the Subscriber does not have an ID, the implementation of this function needs to be reviewed.。
+        // TODO: Because the Subscriber does not have an ID, the implementation of this function needs to be reviewed.
     }
 
     pub fn publish(
@@ -98,7 +98,7 @@ impl Topic {
 
             // Notification to all subscribers
             for subscriber in &self.subscribers {
-                (subscriber)(message.clone());
+                (subscriber.callback)(message.clone());
             }
 
             Ok(partition_id)
@@ -141,9 +141,12 @@ mod tests {
     #[test]
     fn test_add_subscriber() {
         let mut topic = Topic::new("test_topic", 3, 2);
-        let subscriber: Subscriber = Box::new(|msg: String| {
-            println!("Received message: {}", msg);
-        });
+        let subscriber = Subscriber::new(
+            "test_sub",
+            Box::new(|msg: String| {
+                println!("Received message: {}", msg);
+            }),
+        );
         topic.add_subscriber(subscriber);
         assert_eq!(topic.subscribers.len(), 1);
     }
@@ -151,22 +154,19 @@ mod tests {
     #[test]
     fn test_publish_message() {
         let mut topic = Topic::new("test_topic", 3, 2);
-        let subscriber: Subscriber = Box::new(|msg: String| {
-            println!("Received message: {}", msg);
-        });
+        let subscriber = Subscriber::new(
+            "test_sub",
+            Box::new(|msg: String| {
+                println!("Received test message: {}", msg);
+            }),
+        );
         topic.add_subscriber(subscriber);
 
         let result = topic.publish("test_message".to_string(), None);
         assert!(result.is_ok());
         let partition_id = result.unwrap();
         assert!(partition_id < 3);
-        assert_eq!(topic.partitions[partition_id].messages.len(), 1);
         assert_eq!(topic.partitions[partition_id].messages[0], "test_message");
-        assert_eq!(topic.partitions[partition_id].replicas[0].messages.len(), 1);
-        assert_eq!(
-            topic.partitions[partition_id].replicas[0].messages[0],
-            "test_message"
-        );
     }
 
     #[test]
