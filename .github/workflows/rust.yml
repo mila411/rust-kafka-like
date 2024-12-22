@@ -31,3 +31,6 @@ jobs:
 
       - name: Test
         run: cargo test
+
+      - name: Run example
+        run: cargo run --example send-recv-example
