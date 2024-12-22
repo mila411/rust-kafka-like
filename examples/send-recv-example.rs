@@ -9,7 +9,7 @@ fn main() {
         .iter()
         .cloned()
         .collect();
-    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3)));
+    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3, 2)));
 
     // Create a topic
     {

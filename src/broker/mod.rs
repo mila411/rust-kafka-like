@@ -13,15 +13,17 @@ pub struct Broker {
     pub id: String,
     pub topics: HashMap<String, Topic>,
     pub num_partitions: usize,
+    pub replication_factor: usize,
     pub term: AtomicU64,
 }
 
 impl Broker {
-    pub fn new(id: &str, num_partitions: usize) -> Self {
+    pub fn new(id: &str, num_partitions: usize, replication_factor: usize) -> Self {
         Broker {
             id: id.to_string(),
             topics: HashMap::new(),
             num_partitions,
+            replication_factor,
             term: AtomicU64::new(0),
         }
     }
@@ -73,7 +75,7 @@ impl Broker {
         }
 
         let partitions = num_partitions.unwrap_or(self.num_partitions);
-        let topic = Topic::new(name, partitions);
+        let topic = Topic::new(name, partitions, self.replication_factor);
         self.topics.insert(name.to_string(), topic);
         Ok(())
     }
@@ -85,21 +87,22 @@ mod tests {
 
     #[test]
     fn test_broker_creation() {
-        let broker = Broker::new("broker1", 3);
+        let broker = Broker::new("broker1", 3, 2);
         assert_eq!(broker.id, "broker1");
         assert_eq!(broker.num_partitions, 3);
+        assert_eq!(broker.replication_factor, 2);
     }
 
     #[test]
     fn test_create_topic() {
-        let mut broker = Broker::new("broker1", 3);
+        let mut broker = Broker::new("broker1", 3, 2);
         broker.create_topic("test_topic", None).unwrap();
         assert!(broker.topics.contains_key("test_topic"));
     }
 
     #[test]
     fn test_subscribe_and_publish() {
-        let mut broker = Broker::new("broker1", 3);
+        let mut broker = Broker::new("broker1", 3, 2);
         broker.create_topic("test_topic", None).unwrap();
 
         let subscriber: Subscriber = Box::new(|msg: String| {
