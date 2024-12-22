@@ -1,68 +1,53 @@
-extern crate rust_kafka_like as rufka;   
-use std::error::Error;
-use std::collections::{HashMap, HashSet};
-use std::sync::{
-    Arc, Mutex,
-    atomic::{AtomicU64, Ordering},
-    mpsc::{Receiver, Sender, channel},
-};
+use rust_kafka_like::{Broker, Subscriber};
+use std::collections::HashSet;
+use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let mut peers = HashSet::new();
-    peers.insert("broker2".to_string());
-    peers.insert("broker3".to_string());
-    
-    println!("Initializing broker...");
-    let broker = Arc::new(Mutex::new(rufka::Broker::new(
-        "broker1".to_string(),
-        "logs",
-        3,
-        peers,
-        2,
-    ).expect("Failed to create Broker"),
-));
+fn main() {
+    let _peers: HashSet<String> = ["peer1".to_string(), "peer2".to_string()]
+        .iter()
+        .cloned()
+        .collect();
+    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3)));
 
-    if let Ok(mut broker_ref) = broker.lock() {
-        println!("Creating a topic...");
-        broker_ref.create_topic("test_topic", Some(3))?;
-
-        println!("Registering a subscriber...");
-        broker_ref.subscribe(
-            "test_topic",
-            Box::new(|message, ack_sender| {
-                println!("Received message: {}", message);
-                ack_sender
-                    .send(rufka::MessageAck {
-                        message_id: 0, // TODO: Set an appropriate ID
-                        topic: "test_topic".to_string(),
-                        status: rufka::AckStatus::Success,
-                    })
-                    .unwrap();
-            }),
-        )?;
-
-        broker_ref.start_health_check();
+    // Create a topic
+    {
+        let mut broker = broker.lock().unwrap();
+        broker.create_topic("test_topic", None).unwrap();
     }
 
-    let broker_producer = Arc::clone(&broker);
+    let broker_producer: Arc<Mutex<Broker>> = Arc::clone(&broker);
     let producer_handle = thread::spawn(move || {
-        println!("I started as a producer....");
-        thread::sleep(Duration::from_secs(2));
-
-        if let Ok(broker) = broker_producer.lock() {
-            println!("Sending message...");
-            match broker.publish_with_ack("test_topic", "Test message".to_string(), None) {
-                Ok(ack) => println!("Received message confirmation response: {:?}", ack),
-                Err(e) => eprintln!("Message publication error: {}", e),
-            }
+        for i in 0..10 {
+            let message = format!("message {}", i);
+            let ack = broker_producer
+                .lock()
+                .unwrap()
+                .publish_with_ack("test_topic", message, None)
+                .unwrap();
+            println!("Produced message with ack: {:?}", ack);
+            thread::sleep(Duration::from_millis(100));
         }
     });
 
-    thread::sleep(Duration::from_secs(3));
-    producer_handle.join().unwrap();
+    let broker_consumer: Arc<Mutex<Broker>> = Arc::clone(&broker);
+    let consumer_handle = thread::spawn(move || {
+        broker_consumer
+            .lock()
+            .unwrap()
+            .subscribe(
+                "test_topic",
+                Box::new(|msg: String| {
+                    println!("Consumed message: {}", msg);
+                }) as Subscriber,
+            )
+            .unwrap();
 
-    println!("Quit the program");
-    Ok(())
+        // End the thread after the message has been consumed.
+        thread::sleep(Duration::from_secs(2));
+    });
+
+    producer_handle.join().unwrap();
+    consumer_handle.join().unwrap();
 }
