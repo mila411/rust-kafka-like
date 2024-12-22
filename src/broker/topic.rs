@@ -97,3 +97,56 @@ impl Topic {
         (now % self.partitions.len() as u128) as usize
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::subscriber::types::Subscriber;
+
+    #[test]
+    fn test_topic_creation() {
+        let topic = Topic::new("test_topic", 3);
+        assert_eq!(topic.name, "test_topic");
+        assert_eq!(topic.partitions.len(), 3);
+    }
+
+    #[test]
+    fn test_add_subscriber() {
+        let mut topic = Topic::new("test_topic", 3);
+        let subscriber: Subscriber = Box::new(|msg: String| {
+            println!("Received message: {}", msg);
+        });
+        topic.add_subscriber(subscriber);
+        assert_eq!(topic.subscribers.len(), 1);
+    }
+
+    #[test]
+    fn test_publish_message() {
+        let mut topic = Topic::new("test_topic", 3);
+        let subscriber: Subscriber = Box::new(|msg: String| {
+            println!("Received message: {}", msg);
+        });
+        topic.add_subscriber(subscriber);
+
+        let result = topic.publish("test_message".to_string(), None);
+        assert!(result.is_ok());
+        let partition_id = result.unwrap();
+        assert!(partition_id < 3);
+        assert_eq!(topic.partitions[partition_id].messages.len(), 1);
+        assert_eq!(topic.partitions[partition_id].messages[0], "test_message");
+    }
+
+    #[test]
+    fn test_get_partition_id() {
+        let topic = Topic::new("test_topic", 3);
+        let partition_id = topic.get_partition_id("key");
+        assert!(partition_id < 3);
+    }
+
+    #[test]
+    fn test_get_next_partition() {
+        let topic = Topic::new("test_topic", 3);
+        let partition_id = topic.get_next_partition();
+        assert!(partition_id < 3);
+    }
+}
