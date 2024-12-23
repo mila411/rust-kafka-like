@@ -22,7 +22,7 @@ mod tests {
 
     #[test]
     fn test_broker_creation() {
-        let broker = Broker::new("broker1", 3, 2);
+        let broker = Broker::new("broker1", 3, 2, "test_logs");
         assert_eq!(broker.id, "broker1");
         assert_eq!(broker.num_partitions, 3);
         assert_eq!(broker.replication_factor, 2);
@@ -30,18 +30,18 @@ mod tests {
 
     #[test]
     fn test_create_topic() {
-        let mut broker = Broker::new("broker1", 3, 2);
+        let mut broker = Broker::new("broker1", 3, 2, "test_logs");
         broker.create_topic("test_topic", None).unwrap();
         assert!(broker.topics.contains_key("test_topic"));
     }
 
     #[test]
     fn test_subscribe_and_publish() {
-        let mut broker = Broker::new("broker1", 3, 2);
+        let mut broker = Broker::new("broker1", 3, 2, "test_logs");
         broker.create_topic("test_topic", None).unwrap();
 
         let subscriber = Subscriber::new(
-            "test_sub",
+            "sub1",
             Box::new(|msg: String| {
                 println!("Received message: {}", msg);
             }),

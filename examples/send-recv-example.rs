@@ -17,7 +17,7 @@ fn main() {
         .iter()
         .cloned()
         .collect();
-    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3, 2)));
+    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3, 2, "logs")));
 
     // Create a topic
     {

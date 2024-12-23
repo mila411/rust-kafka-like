@@ -14,6 +14,9 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - Leader/Follower Replication
 - Fault Detection and Automatic Recovery
 - Delivery guaranteed by acknowledgement (ACK)
+- Fully implemented leader selection mechanism
+- Partition Replication
+- Persistent messages
 
 ## Usage
 
@@ -52,9 +55,12 @@ broker.subscribe("test_topic", Box::new(|message, ack| {
 
 ### Planned features(perhaps)
 
-1. Strengthening message persistence
-1. Fully implemented leader selection mechanism
 1. Improvements in fault detection and automatic recovery
+2. Consumer group support
+3. Message ordering guarantee
+4. Schema registry support
+5. High availability and scalability
+6. Security features
 
 ### License
 
