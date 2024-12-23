@@ -1,31 +1,46 @@
 pub mod error;
+pub mod leader;
 pub mod topic;
 
 use crate::broker::error::BrokerError;
+use crate::broker::leader::{BrokerState, LeaderElection};
 use crate::broker::topic::Topic;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Duration;
 
 pub struct Broker {
-    #[allow(dead_code)]
     pub id: String,
     pub topics: HashMap<String, Topic>,
     pub num_partitions: usize,
     pub replication_factor: usize,
     pub term: AtomicU64,
+    pub leader_election: LeaderElection,
 }
 
 impl Broker {
     pub fn new(id: &str, num_partitions: usize, replication_factor: usize) -> Self {
+        let peers = HashMap::new(); // 実際の環境では設定から読み込む
+        let leader_election = LeaderElection::new(id, peers);
+
         Broker {
             id: id.to_string(),
             topics: HashMap::new(),
             num_partitions,
             replication_factor,
             term: AtomicU64::new(0),
+            leader_election,
         }
+    }
+
+    pub fn start_election(&self) -> bool {
+        self.leader_election.start_election()
+    }
+
+    pub fn is_leader(&self) -> bool {
+        *self.leader_election.state.lock().unwrap() == BrokerState::Leader
     }
 
     pub fn subscribe(&mut self, topic_name: &str, callback: Subscriber) -> Result<(), BrokerError> {
@@ -84,6 +99,16 @@ impl Broker {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_broker_leader_election() {
+        let broker = Broker::new("broker1", 3, 2);
+        assert!(!broker.is_leader());
+
+        let elected = broker.start_election();
+        assert!(elected);
+        assert!(broker.is_leader());
+    }
 
     #[test]
     fn test_broker_creation() {
