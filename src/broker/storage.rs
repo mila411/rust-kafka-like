@@ -1,6 +1,6 @@
 use std::fs::{File, OpenOptions};
-use std::io::BufRead; // 追加
-use std::io::{self, BufReader, BufWriter, Read, Write};
+use std::io::BufRead;
+use std::io::{self, BufReader, BufWriter, Write};
 use std::path::Path;
 
 pub struct Storage {

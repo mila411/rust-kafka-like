@@ -20,7 +20,7 @@ impl Heartbeat {
         let heartbeat = Arc::new(Self::new(Duration::from_secs(1)));
         let election = Arc::new(election);
 
-        // ハートビート送信スレッド
+        // Heartbeat Transmission Thread
         let send_election = election.clone();
         let send_heartbeat = heartbeat.clone();
         std::thread::spawn(move || {
@@ -31,7 +31,7 @@ impl Heartbeat {
             }
         });
 
-        // ハートビート監視スレッド
+        // Heartbeat monitoring thread
         let monitor_election = election.clone();
         let monitor_heartbeat = heartbeat.clone();
         std::thread::spawn(move || {
@@ -49,7 +49,7 @@ impl Heartbeat {
         let peers = election.peers.lock().unwrap();
         for (peer_id, _) in peers.iter() {
             println!("Sending heartbeat to peer: {}", peer_id);
-            // ここで実際のネットワーク通信を実装
+            // TODO Implementing actual network communication here
         }
     }
 
@@ -62,7 +62,6 @@ impl Heartbeat {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
 
     #[test]
     fn test_heartbeat_timeout() {

@@ -30,7 +30,7 @@ impl Broker {
         replication_factor: usize,
         storage_path: &str,
     ) -> Self {
-        let peers = HashMap::new(); // 実際の環境では設定から読み込む
+        let peers = HashMap::new(); //TODO it reads from the settings
         let leader_election = LeaderElection::new(id, peers);
         let storage = Storage::new(storage_path).expect("Failed to initialize storage");
 
@@ -101,7 +101,7 @@ impl Broker {
                 partition_id,
             );
 
-            // メッセージをストレージに書き込む
+            // Write the message to storage
             self.storage.lock().unwrap().write_message(&message)?;
 
             Ok(ack)
