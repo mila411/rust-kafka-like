@@ -8,7 +8,11 @@ name = "rust_kafka_like"
 path = "src/lib.rs"
 
 [[example]]
-name = "send-recv-example"
-path = "examples/send-recv-example.rs"
+name = "send-recv"
+path = "examples/send-recv.rs"
+
+[[example]]
+name = "mulch-send-recv"
+path = "examples/mulch-send-recv.rs"
 
 [dependencies]

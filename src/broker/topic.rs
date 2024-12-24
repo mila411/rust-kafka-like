@@ -22,6 +22,7 @@ pub struct Partition {
     pub id: usize,
     pub messages: Vec<String>,
     pub replicas: Vec<Replica>,
+    pub next_offset: usize,
 }
 
 impl Debug for Partition {
@@ -60,6 +61,7 @@ impl Topic {
                         messages: Vec::new(),
                     })
                     .collect(),
+                next_offset: 0, // 初期化
             })
             .collect();
 
@@ -89,7 +91,7 @@ impl Topic {
         };
 
         if let Some(partition) = self.partitions.get_mut(partition_id) {
-            partition.messages.push(message.clone());
+            partition.add_message(message.clone());
 
             // Add a message to the replica
             for replica in &mut partition.replicas {
@@ -125,10 +127,30 @@ impl Topic {
     }
 }
 
+impl Partition {
+    // Add a message.
+    // Increment the offset to guarantee message order.
+    pub fn add_message(&mut self, message: String) {
+        self.messages.push(message);
+        self.next_offset += 1;
+    }
+
+    // Returns the messages after the specified offset (start_offset).
+    // This implementation guarantees the order of the messages within the partition.
+    pub fn fetch_messages_in_order(&self, start_offset: usize) -> &[String] {
+        if start_offset >= self.messages.len() {
+            &[]
+        } else {
+            &self.messages[start_offset..]
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::subscriber::types::Subscriber;
+    use std::sync::{Arc, Mutex};
 
     #[test]
     fn test_topic_creation() {
@@ -181,5 +203,56 @@ mod tests {
         let topic = Topic::new("test_topic", 3, 2);
         let partition_id = topic.get_next_partition();
         assert!(partition_id < 3);
+    }
+
+    #[test]
+    fn test_message_ordering() {
+        let mut topic = Topic::new("test_topic", 1, 1);
+        topic.publish("message_1".to_string(), None).unwrap();
+        topic.publish("message_2".to_string(), None).unwrap();
+        topic.publish("message_3".to_string(), None).unwrap();
+
+        let partition = &topic.partitions[0];
+        let messages = partition.fetch_messages_in_order(0);
+        assert_eq!(messages.len(), 3);
+        assert_eq!(messages[0], "message_1");
+        assert_eq!(messages[1], "message_2");
+        assert_eq!(messages[2], "message_3");
+    }
+
+    #[test]
+    fn test_fetch_messages_from_offset() {
+        let mut topic = Topic::new("test_topic", 1, 1);
+        topic.publish("message_1".to_string(), None).unwrap();
+        topic.publish("message_2".to_string(), None).unwrap();
+        topic.publish("message_3".to_string(), None).unwrap();
+
+        let partition = &topic.partitions[0];
+        let messages = partition.fetch_messages_in_order(1);
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0], "message_2");
+        assert_eq!(messages[1], "message_3");
+    }
+
+    #[test]
+    fn test_subscriber_receives_messages() {
+        let mut topic = Topic::new("test_topic", 1, 1);
+        let received_messages = Arc::new(Mutex::new(Vec::new()));
+
+        let subscriber = Subscriber::new("sub1", {
+            let received_messages = Arc::clone(&received_messages);
+            Box::new(move |msg: String| {
+                received_messages.lock().unwrap().push(msg);
+            })
+        });
+        topic.add_subscriber(subscriber);
+
+        topic.publish("message_1".to_string(), None).unwrap();
+        topic.publish("message_2".to_string(), None).unwrap();
+
+        let received_messages = received_messages.lock().unwrap();
+        assert_eq!(received_messages.len(), 2);
+        assert_eq!(received_messages[0], "message_1");
+        assert_eq!(received_messages[1], "message_2");
     }
 }
