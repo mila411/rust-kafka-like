@@ -1,9 +1,5 @@
 # rust kafka-like
 
-⚠️⚠️⚠️<br>
-This is a toy I created to play with Rust. Please note that it lacks many features that are Production Ready<br>
-⚠️⚠️⚠️
-
 This is a Rust implementation of a distributed messaging system. It uses a simple design inspired by Apache Kafka. It simply records messages to local files.
 
 ## Features
@@ -17,6 +13,7 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - Fully implemented leader selection mechanism
 - Partition Replication
 - Persistent messages
+- Schema Registry for managing message schemas and ensuring compatibility
 
 ## Usage
 
@@ -27,40 +24,80 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 ### Basic usage
 
 ```rust
-// Broker initialization
-let broker = Broker::new(
-    "broker1".to_string(),
-    "logs",
-    3,
-    peers,
-    2
-)?;
+use rust_kafka_like::broker::Broker;
+use rust_kafka_like::schema::registry::SchemaRegistry;
+use rust_kafka_like::subscriber::types::Subscriber;
+use std::sync::{Arc, Mutex};
+use std::thread;
 
-// Creating a topic
-broker.create_topic("test_topic", Some(3))?;
+fn main() {
+    // Create a schema registry
+    let schema_registry = SchemaRegistry::new();
+    let schema_def = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
+    schema_registry.register_schema("test_topic", schema_def).unwrap();
 
-// Publish Message
-broker.publish_with_ack(
-    "test_topic",
-    "Test message".to_string(),
-    None
-)?;
+    // Create a broker
+    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3, 2, "logs")));
 
-// Subscriber registration
-broker.subscribe("test_topic", Box::new(|message, ack| {
-    println!("Received: {}", message);
-    // ACK transmission
-}))?;
+    // Create a topic
+    {
+        let mut broker = broker.lock().unwrap();
+        broker.create_topic("test_topic", None).unwrap();
+    }
+
+    // Create a producer
+    let broker_producer = Arc::clone(&broker);
+    let producer_handle = thread::spawn(move || {
+        let message = "test_message".to_string();
+        let mut broker = broker_producer.lock().unwrap();
+        broker.publish_with_ack("test_topic", message, None).unwrap();
+    });
+
+    // Create a consumer
+    let broker_consumer = Arc::clone(&broker);
+    let consumer_handle = thread::spawn(move || {
+        let subscriber = Subscriber::new(
+            "consumer_1",
+            Box::new(move |msg: String| {
+                println!("Consumed message: {}", msg);
+            }),
+        );
+        broker_consumer
+            .lock()
+            .unwrap()
+            .subscribe("test_topic", subscriber, Some("group1"))
+            .unwrap();
+    });
+
+    // Wait for producer and consumer to finish
+    producer_handle.join().unwrap();
+    consumer_handle.join().unwrap();
+}
+```
+
+### Fault Detection and Automatic Recovery
+
+The system includes mechanisms for fault detection and automatic recovery. Nodes are monitored using heartbeat signals, and if a fault is detected, the system will attempt to recover automatically.
+
+```rust
+use rust_kafka_like::broker::Broker;
+use std::time::Duration;
+
+fn main() {
+    let broker = Broker::new("broker1", 3, 2, "logs");
+
+    // Check node health
+    if broker.detect_faults() {
+        broker.recover_node();
+    }
+}
 ```
 
 ### Planned features(perhaps)
 
-1. Improvements in fault detection and automatic recovery
-2. Consumer group support
-3. Message ordering guarantee
-4. Schema registry support
-5. High availability and scalability
-6. Security features
+1. Add security features
+2. High Availability and Scalability
+3. Strengthening the mechanism for selecting leaders
 
 ### License
 
@@ -76,5 +113,6 @@ MIT
 To execute a basic example, use the following command:
 
 ```bash
-cargo run --example send-recv-example
+cargo run --example simple-send-recv
+cargo run --example mulch-send-recv
 ```
