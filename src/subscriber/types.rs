@@ -4,6 +4,26 @@ pub struct Subscriber {
 }
 
 impl Subscriber {
+    /// Creates a new subscriber instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The ID of the subscriber.
+    /// * `callback` - The callback function to be called when a message is received.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::subscriber::types::Subscriber;
+    ///
+    /// let subscriber = Subscriber::new(
+    ///     "test_subscriber",
+    ///     Box::new(|msg| {
+    ///         println!("Received message: {}", msg);
+    ///     }),
+    /// );
+    /// assert_eq!(subscriber.id, "test_subscriber");
+    /// ```
     pub fn new(id: &str, callback: Box<dyn Fn(String) + Send + Sync>) -> Self {
         Subscriber {
             id: id.to_string(),

@@ -1,5 +1,5 @@
 [package]
-name = "rufka"
+name = "rust_kafka_like"
 version = "0.1.0"
 edition = "2024"
 
@@ -7,9 +7,6 @@ edition = "2024"
 name = "rust_kafka_like"
 path = "src/lib.rs"
 
-[[example]]
-name = "send-recv"
-path = "examples/send-recv.rs"
 
 [[example]]
 name = "mulch-send-recv"

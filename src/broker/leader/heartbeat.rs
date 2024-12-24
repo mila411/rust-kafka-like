@@ -9,6 +9,21 @@ pub struct Heartbeat {
 }
 
 impl Heartbeat {
+    /// Creates a new heartbeat instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `timeout` - The duration after which the heartbeat times out.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::leader::heartbeat::Heartbeat;
+    /// use std::time::Duration;
+    ///
+    /// let heartbeat = Heartbeat::new(Duration::from_secs(1));
+    /// assert!(heartbeat.last_beat.lock().unwrap().elapsed() < Duration::from_secs(1));
+    /// ```
     pub fn new(timeout: Duration) -> Self {
         Heartbeat {
             last_beat: Arc::new(Mutex::new(Instant::now())),
@@ -16,6 +31,24 @@ impl Heartbeat {
         }
     }
 
+    /// Starts the heartbeat mechanism.
+    ///
+    /// # Arguments
+    ///
+    /// * `election` - The leader election instance.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::leader::heartbeat::Heartbeat;
+    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use std::collections::HashMap;
+    /// use std::time::Duration;
+    ///
+    /// let peers = HashMap::new();
+    /// let election = LeaderElection::new("broker1", peers);
+    /// Heartbeat::start(election);
+    /// ```
     pub fn start(election: LeaderElection) {
         let heartbeat = Arc::new(Self::new(Duration::from_secs(1)));
         let election = Arc::new(election);
@@ -45,7 +78,24 @@ impl Heartbeat {
         });
     }
 
-    fn send_heartbeat(election: &LeaderElection) {
+    /// Sends a heartbeat to the peers.
+    ///
+    /// # Arguments
+    ///
+    /// * `election` - The leader election instance.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::leader::heartbeat::Heartbeat;
+    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use std::collections::HashMap;
+    ///
+    /// let peers = HashMap::new();
+    /// let election = LeaderElection::new("broker1", peers);
+    /// Heartbeat::send_heartbeat(&election);
+    /// ```
+    pub fn send_heartbeat(election: &LeaderElection) {
         let peers = election.peers.lock().unwrap();
         for (peer_id, _) in peers.iter() {
             println!("Sending heartbeat to peer: {}", peer_id);

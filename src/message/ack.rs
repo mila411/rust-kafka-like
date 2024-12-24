@@ -8,6 +8,24 @@ pub struct MessageAck {
 }
 
 impl MessageAck {
+    /// Creates a new MessageAck instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The ID of the acknowledgment.
+    /// * `topic` - The topic of the message.
+    /// * `partition` - The partition of the message.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::message::ack::MessageAck;
+    ///
+    /// let ack = MessageAck::new(1, "test_topic", 0);
+    /// assert_eq!(ack.id, 1);
+    /// assert_eq!(ack.topic, "test_topic");
+    /// assert_eq!(ack.partition, 0);
+    /// ```
     pub fn new(id: u64, topic: &str, partition: usize) -> Self {
         MessageAck {
             id,
@@ -18,6 +36,16 @@ impl MessageAck {
 }
 
 impl fmt::Display for MessageAck {
+    /// Formats the MessageAck for display purposes.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::message::ack::MessageAck;
+    ///
+    /// let ack = MessageAck::new(1, "test_topic", 0);
+    /// assert_eq!(format!("{}", ack), "MessageAck { id: 1, topic: test_topic, partition: 0 }");
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,

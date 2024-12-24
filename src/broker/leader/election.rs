@@ -16,6 +16,23 @@ pub struct LeaderElection {
 }
 
 impl LeaderElection {
+    /// Creates a new leader election instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `broker_id` - The ID of the broker.
+    /// * `peers` - A hashmap of peer broker IDs and their addresses.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use std::collections::HashMap;
+    ///
+    /// let peers = HashMap::new();
+    /// let election = LeaderElection::new("broker1", peers);
+    /// assert_eq!(election.broker_id, "broker1");
+    /// ```
     pub fn new(broker_id: &str, peers: HashMap<String, String>) -> Self {
         LeaderElection {
             broker_id: broker_id.to_string(),
@@ -30,6 +47,19 @@ impl LeaderElection {
         }
     }
 
+    /// Starts the leader election process.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use std::collections::HashMap;
+    ///
+    /// let peers = HashMap::new();
+    /// let mut election = LeaderElection::new("broker1", peers);
+    /// let elected = election.start_election();
+    /// assert!(elected);
+    /// ```
     pub fn start_election(&self) -> bool {
         let mut state = self.state.lock().unwrap();
         if *state != BrokerState::Follower {

@@ -24,6 +24,25 @@ pub struct Broker {
 }
 
 impl Broker {
+    /// Creates a new broker instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - A string slice that holds the ID of the broker.
+    /// * `num_partitions` - The number of partitions for the broker.
+    /// * `replication_factor` - The replication factor for the broker.
+    /// * `storage_path` - The path to the storage file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let broker = Broker::new("broker1", 3, 2, "logs");
+    /// assert_eq!(broker.id, "broker1");
+    /// assert_eq!(broker.num_partitions, 3);
+    /// assert_eq!(broker.replication_factor, 2);
+    /// ```
     pub fn new(
         id: &str,
         num_partitions: usize,
@@ -45,14 +64,52 @@ impl Broker {
         }
     }
 
+    /// Starts the leader election process.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let broker = Broker::new("broker1", 3, 2, "logs");
+    /// let elected = broker.start_election();
+    /// assert!(elected);
+    /// ```
     pub fn start_election(&self) -> bool {
         self.leader_election.start_election()
     }
 
+    /// Checks if the broker is the leader.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let broker = Broker::new("broker1", 3, 2, "logs");
+    /// broker.start_election();
+    /// assert!(broker.is_leader());
+    /// ```
     pub fn is_leader(&self) -> bool {
         *self.leader_election.state.lock().unwrap() == BrokerState::Leader
     }
 
+    /// Creates a new topic.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the topic.
+    /// * `num_partitions` - The number of partitions for the topic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
+    /// broker.create_topic("test_topic", None).unwrap();
+    /// assert!(broker.topics.contains_key("test_topic"));
+    /// ```
     pub fn create_topic(
         &mut self,
         name: &str,
@@ -71,6 +128,26 @@ impl Broker {
         Ok(())
     }
 
+    /// Subscribes a subscriber to a topic.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic_name` - The name of the topic.
+    /// * `subscriber` - The subscriber to add.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    /// use rust_kafka_like::subscriber::types::Subscriber;
+    ///
+    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
+    /// broker.create_topic("test_topic", None).unwrap();
+    /// let subscriber = Subscriber::new("sub1", Box::new(|msg: String| {
+    ///     println!("Received message: {}", msg);
+    /// }));
+    /// broker.subscribe("test_topic", subscriber).unwrap();
+    /// ```
     pub fn subscribe(
         &mut self,
         topic_name: &str,
@@ -87,6 +164,24 @@ impl Broker {
         }
     }
 
+    /// Publishes a message to a topic with acknowledgment.
+    ///
+    /// # Arguments
+    ///
+    /// * `topic_name` - The name of the topic.
+    /// * `message` - The message to publish.
+    /// * `key` - An optional key for partitioning.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
+    /// broker.create_topic("test_topic", None).unwrap();
+    /// let ack = broker.publish_with_ack("test_topic", "test_message".to_string(), None).unwrap();
+    /// assert_eq!(ack.topic, "test_topic");
+    /// ```
     pub fn publish_with_ack(
         &mut self,
         topic_name: &str,
@@ -113,11 +208,36 @@ impl Broker {
         }
     }
 
+    /// Rotates the logs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
+    /// broker.create_topic("test_topic", None).unwrap();
+    /// broker.publish_with_ack("test_topic", "test_message".to_string(), None).unwrap();
+    /// broker.rotate_logs().unwrap();
+    /// ```
     pub fn rotate_logs(&mut self) -> Result<(), BrokerError> {
         self.storage.lock().unwrap().rotate_logs()?;
         Ok(())
     }
 
+    /// Cleans up the old logs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::Broker;
+    ///
+    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
+    /// broker.create_topic("test_topic", None).unwrap();
+    /// broker.publish_with_ack("test_topic", "test_message".to_string(), None).unwrap();
+    /// broker.rotate_logs().unwrap();
+    /// broker.cleanup_logs().unwrap();
+    /// ```
     pub fn cleanup_logs(&self) -> Result<(), BrokerError> {
         self.storage.lock().unwrap().cleanup_logs()?;
         Ok(())

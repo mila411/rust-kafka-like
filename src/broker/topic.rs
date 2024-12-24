@@ -50,6 +50,24 @@ impl Debug for Replica {
 }
 
 impl Topic {
+    /// Creates a new topic.
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the topic.
+    /// * `num_partitions` - The number of partitions for the topic.
+    /// * `replication_factor` - The replication factor for the topic.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::topic::Topic;
+    ///
+    /// let topic = Topic::new("test_topic", 3, 2);
+    /// assert_eq!(topic.name, "test_topic");
+    /// assert_eq!(topic.partitions.len(), 3);
+    /// assert_eq!(topic.partitions[0].replicas.len(), 2);
+    /// ```
     pub fn new(name: &str, num_partitions: usize, replication_factor: usize) -> Self {
         let partitions = (0..num_partitions)
             .map(|i| Partition {
@@ -72,6 +90,25 @@ impl Topic {
         }
     }
 
+    /// Adds a subscriber to the topic.
+    ///
+    /// # Arguments
+    ///
+    /// * `subscriber` - The subscriber to add.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::topic::Topic;
+    /// use rust_kafka_like::subscriber::types::Subscriber;
+    ///
+    /// let mut topic = Topic::new("test_topic", 3, 2);
+    /// let subscriber = Subscriber::new("sub1", Box::new(|msg: String| {
+    ///     println!("Received message: {}", msg);
+    /// }));
+    /// topic.add_subscriber(subscriber);
+    /// assert_eq!(topic.subscribers.len(), 1);
+    /// ```
     pub fn add_subscriber(&mut self, subscriber: Subscriber) {
         self.subscribers.push(subscriber);
     }
@@ -80,6 +117,23 @@ impl Topic {
         // TODO: Because the Subscriber does not have an ID, the implementation of this function needs to be reviewed.
     }
 
+    /// Publishes a message to the topic.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to publish.
+    /// * `partition_key` - An optional key for partitioning.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::topic::Topic;
+    /// use rust_kafka_like::broker::error::BrokerError;
+    ///
+    /// let mut topic = Topic::new("test_topic", 3, 2);
+    /// let result = topic.publish("test_message".to_string(), None);
+    /// assert!(result.is_ok());
+    /// ```
     pub fn publish(
         &mut self,
         message: String,
@@ -128,15 +182,53 @@ impl Topic {
 }
 
 impl Partition {
-    // Add a message.
-    // Increment the offset to guarantee message order.
+    /// Adds a message to the partition.
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - The message to add.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::topic::Partition;
+    ///
+    /// let mut partition = Partition {
+    ///     id: 0,
+    ///     messages: Vec::new(),
+    ///     replicas: Vec::new(),
+    ///     next_offset: 0,
+    /// };
+    /// partition.add_message("test_message".to_string());
+    /// assert_eq!(partition.messages.len(), 1);
+    /// assert_eq!(partition.messages[0], "test_message");
+    /// ```
     pub fn add_message(&mut self, message: String) {
         self.messages.push(message);
         self.next_offset += 1;
     }
 
-    // Returns the messages after the specified offset (start_offset).
-    // This implementation guarantees the order of the messages within the partition.
+    /// Fetches messages from the partition starting from a given offset.
+    ///
+    /// # Arguments
+    ///
+    /// * `start_offset` - The offset to start fetching messages from.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rust_kafka_like::broker::topic::Partition;
+    ///
+    /// let mut partition = Partition {
+    ///     id: 0,
+    ///     messages: vec!["message_1".to_string(), "message_2".to_string()],
+    ///     replicas: Vec::new(),
+    ///     next_offset: 2,
+    /// };
+    /// let messages = partition.fetch_messages_in_order(1);
+    /// assert_eq!(messages.len(), 1);
+    /// assert_eq!(messages[0], "message_2");
+    /// ```
     pub fn fetch_messages_in_order(&self, start_offset: usize) -> &[String] {
         if start_offset >= self.messages.len() {
             &[]
