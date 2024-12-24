@@ -1,8 +1,10 @@
+pub mod consumer;
 pub mod error;
 pub mod leader;
 pub mod storage;
 pub mod topic;
 
+use crate::broker::consumer::group::ConsumerGroup;
 use crate::broker::error::BrokerError;
 use crate::broker::leader::{BrokerState, LeaderElection};
 use crate::broker::storage::Storage;
@@ -21,6 +23,7 @@ pub struct Broker {
     pub term: AtomicU64,
     pub leader_election: LeaderElection,
     pub storage: Arc<Mutex<Storage>>,
+    pub consumer_groups: Arc<Mutex<HashMap<String, ConsumerGroup>>>,
 }
 
 impl Broker {
@@ -61,6 +64,7 @@ impl Broker {
             term: AtomicU64::new(0),
             leader_election,
             storage: Arc::new(Mutex::new(storage)),
+            consumer_groups: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -134,6 +138,7 @@ impl Broker {
     ///
     /// * `topic_name` - The name of the topic.
     /// * `subscriber` - The subscriber to add.
+    /// * `group_id` - Optional consumer group ID.
     ///
     /// # Examples
     ///
@@ -143,18 +148,30 @@ impl Broker {
     ///
     /// let mut broker = Broker::new("broker1", 3, 2, "logs");
     /// broker.create_topic("test_topic", None).unwrap();
-    /// let subscriber = Subscriber::new("sub1", Box::new(|msg: String| {
-    ///     println!("Received message: {}", msg);
-    /// }));
-    /// broker.subscribe("test_topic", subscriber).unwrap();
+    /// let subscriber = Subscriber::new(
+    ///     "consumer1",
+    ///     Box::new(|msg: String| {
+    ///         println!("Received message: {}", msg);
+    ///     }),
+    /// );
+    /// broker.subscribe("test_topic", subscriber, None).unwrap();
     /// ```
     pub fn subscribe(
         &mut self,
         topic_name: &str,
         subscriber: Subscriber,
+        group_id: Option<&str>,
     ) -> Result<(), BrokerError> {
         if let Some(topic) = self.topics.get_mut(topic_name) {
-            topic.add_subscriber(subscriber);
+            if let Some(group_id) = group_id {
+                let mut groups = self.consumer_groups.lock().unwrap();
+                let group = groups
+                    .entry(group_id.to_string())
+                    .or_insert_with(|| ConsumerGroup::new(group_id));
+                group.add_member(&subscriber.id.clone(), subscriber);
+            } else {
+                topic.add_subscriber(subscriber);
+            }
             Ok(())
         } else {
             Err(BrokerError::TopicError(format!(
@@ -196,8 +213,28 @@ impl Broker {
                 partition_id,
             );
 
-            // Write the message to storage
             self.storage.lock().unwrap().write_message(&message)?;
+
+            // コンシューマーグループへのメッセージ配信
+            let message_clone = message.clone();
+            let consumer_groups = self.consumer_groups.clone();
+            std::thread::spawn(move || {
+                if let Ok(groups) = consumer_groups.lock() {
+                    for group in groups.values() {
+                        if let (Ok(assignments), Ok(members)) =
+                            (group.assignments.lock(), group.members.lock())
+                        {
+                            for (cons_id, parts) in assignments.iter() {
+                                if parts.contains(&partition_id) {
+                                    if let Some(member) = members.get(cons_id) {
+                                        (member.subscriber.callback)(message_clone.clone());
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
 
             Ok(ack)
         } else {
@@ -249,6 +286,9 @@ mod tests {
     use super::*;
     use std::fs;
     use std::path::Path;
+    use std::sync::{Arc, Condvar, Mutex};
+    use std::thread;
+    use std::time::Duration;
 
     fn setup_test_logs(path: &str) {
         cleanup_test_logs(path);
@@ -369,7 +409,7 @@ mod tests {
                 println!("Received message: {}", msg);
             }),
         );
-        broker.subscribe("test_topic", subscriber).unwrap();
+        broker.subscribe("test_topic", subscriber, None).unwrap();
 
         let ack = broker
             .publish_with_ack("test_topic", "test_message".to_string(), None)
@@ -377,5 +417,72 @@ mod tests {
         assert_eq!(ack.topic, "test_topic");
 
         cleanup_test_logs(test_log);
+    }
+
+    #[test]
+    fn test_consumer_group_message_distribution() {
+        println!("テスト開始");
+        let mut broker = Broker::new("broker1", 3, 2, "logs");
+        broker.create_topic("test_topic", None).unwrap();
+
+        let received_count = Arc::new((Mutex::new(0), Condvar::new()));
+        let total_messages = 10;
+
+        // メッセージ受信を追跡
+        let received_messages = Arc::new(Mutex::new(Vec::new()));
+
+        // 各コンシューマーの設定
+        for i in 0..2 {
+            let received_messages = Arc::clone(&received_messages);
+            let received_count = Arc::clone(&received_count);
+
+            let subscriber = Subscriber::new(
+                &format!("consumer_{}", i),
+                Box::new(move |msg: String| {
+                    println!("Consumer {} received: {}", i, msg);
+                    received_messages.lock().unwrap().push(msg);
+
+                    let (lock, cvar) = &*received_count;
+                    let mut count = lock.lock().unwrap();
+                    *count += 1;
+                    println!("Received count: {}", *count);
+                    if *count == total_messages {
+                        cvar.notify_all();
+                    }
+                }),
+            );
+
+            broker
+                .subscribe("test_topic", subscriber, Some("group1"))
+                .unwrap();
+            thread::sleep(Duration::from_millis(100)); // リバランス用の待機
+        }
+
+        println!("メッセージ送信開始");
+        for i in 0..total_messages {
+            let message = format!("message_{}", i);
+            println!("Sending: {}", message);
+            broker
+                .publish_with_ack("test_topic", message, None)
+                .unwrap();
+            thread::sleep(Duration::from_millis(10)); // 送信間隔を空ける
+        }
+
+        // 完了待ち
+        let (lock, cvar) = &*received_count;
+        let timeout = Duration::from_secs(5);
+        let result = cvar
+            .wait_timeout_while(lock.lock().unwrap(), timeout, |&mut count| {
+                count < total_messages
+            })
+            .unwrap();
+
+        if result.1.timed_out() {
+            panic!("テストがタイムアウトしました: 受信数 {}", *result.0);
+        }
+
+        let received = received_messages.lock().unwrap();
+        println!("Received messages: {:?}", *received);
+        assert_eq!(received.len(), total_messages);
     }
 }
