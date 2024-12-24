@@ -2,14 +2,18 @@
 name = "rust_kafka_like"
 version = "0.1.0"
 edition = "2024"
+authors = ["Kenny Miller Song"]
+description = "A Kafka-like message broker in Rust"
+readme = "README.md"
+repository = "https://github.com/mila411/rust-kafka-like"
+license = "MIT"
+keywords = ["kafka", "message broker", "rust"]
+categories = ["network-programming", "message-broker"]
 
 [lib]
-name = "rust_kafka_like"
 path = "src/lib.rs"
-
-
-[[example]]
-name = "mulch-send-recv"
-path = "examples/mulch-send-recv.rs"
+crate-type = ["rlib"]
 
 [dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
