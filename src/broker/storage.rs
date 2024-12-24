@@ -1,7 +1,6 @@
 use std::fs::{File, OpenOptions};
 use std::io::BufRead;
 use std::io::{self, BufReader, BufWriter, Write};
-use std::path::Path;
 
 pub struct Storage {
     file: BufWriter<File>,
@@ -23,14 +22,16 @@ impl Storage {
     /// let storage = Storage::new("test_logs").unwrap();
     /// ```
     pub fn new(path: &str) -> io::Result<Self> {
-        let file = OpenOptions::new()
-            .create(true)
-            .write(true)
-            .append(true)
-            .open(path)?;
+        let file = BufWriter::new(
+            OpenOptions::new()
+                .create(true)
+                .write(true)
+                .append(true)
+                .open(path)?,
+        );
         Ok(Storage {
-            file: BufWriter::new(file),
             path: path.to_string(),
+            file,
         })
     }
 
@@ -50,7 +51,8 @@ impl Storage {
     /// ```
     pub fn write_message(&mut self, message: &str) -> io::Result<()> {
         writeln!(self.file, "{}", message)?;
-        self.file.flush()
+        self.file.flush()?;
+        Ok(())
     }
 
     /// Reads messages from the storage.
@@ -114,8 +116,8 @@ impl Storage {
     /// ```
     pub fn cleanup_logs(&self) -> io::Result<()> {
         let old_path = format!("{}.old", self.path);
-        if Path::new(&old_path).exists() {
-            std::fs::remove_file(old_path)?;
+        if std::fs::metadata(&old_path).is_ok() {
+            std::fs::remove_file(&old_path)?;
         }
         Ok(())
     }

@@ -32,5 +32,8 @@ jobs:
       - name: Test
         run: cargo test
 
-      - name: Run example
+      - name: Run simple example
+        run: cargo run --example simple-send-recv
+
+      - name: Run mulch example
         run: cargo run --example mulch-send-recv

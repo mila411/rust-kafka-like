@@ -1,4 +1,5 @@
 use rust_kafka_like::broker::Broker;
+use rust_kafka_like::schema::registry::SchemaRegistry;
 use rust_kafka_like::subscriber::types::Subscriber;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
@@ -14,6 +15,13 @@ fn simple_rng(seed: u64) -> u64 {
 }
 
 fn main() {
+    // Create a schema registry
+    let schema_registry = SchemaRegistry::new();
+    let schema_def = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
+    schema_registry
+        .register_schema("test_topic", schema_def)
+        .unwrap();
+
     let _peers: HashSet<String> = ["peer1".to_string(), "peer2".to_string()]
         .iter()
         .cloned()

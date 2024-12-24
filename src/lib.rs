@@ -1,5 +1,6 @@
 pub mod broker;
 pub mod message;
+pub mod schema;
 pub mod subscriber;
 
 pub use broker::Broker;
