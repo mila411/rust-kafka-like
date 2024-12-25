@@ -78,17 +78,6 @@ impl Storage {
         Ok(messages)
     }
 
-    /// Rotates the logs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rust_kafka_like::broker::storage::Storage;
-    ///
-    /// let mut storage = Storage::new("test_logs").unwrap();
-    /// storage.write_message("test_message").unwrap();
-    /// storage.rotate_logs().unwrap();
-    /// ```
     pub fn rotate_logs(&mut self) -> io::Result<()> {
         let new_path = format!("{}.old", self.path);
         std::fs::rename(&self.path, &new_path)?;

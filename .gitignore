@@ -1,6 +1,5 @@
 /target
 /logs
-*log
-*logs
+*log*
 *old
 note.txt
