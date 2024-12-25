@@ -24,6 +24,8 @@ pub struct Broker {
     pub leader_election: LeaderElection,
     pub storage: Arc<Mutex<Storage>>,
     pub consumer_groups: Arc<Mutex<HashMap<String, ConsumerGroup>>>,
+    pub nodes: Arc<Mutex<HashMap<String, Node>>>,
+    partitions: Arc<Mutex<HashMap<usize, Partition>>>,
 }
 
 impl Broker {
@@ -65,6 +67,37 @@ impl Broker {
             leader_election,
             storage: Arc::new(Mutex::new(storage)),
             consumer_groups: Arc::new(Mutex::new(HashMap::new())),
+            nodes: Arc::new(Mutex::new(HashMap::new())),
+            partitions: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn add_node(&self, node_id: String, node: Node) {
+        let mut nodes = self.nodes.lock().unwrap();
+        nodes.insert(node_id, node);
+        drop(nodes); // ロックを解放
+        self.rebalance_partitions();
+    }
+
+    pub fn remove_node(&self, node_id: &str) {
+        let mut nodes = self.nodes.lock().unwrap();
+        nodes.remove(node_id);
+        drop(nodes); // ロックを解放
+        self.rebalance_partitions();
+    }
+
+    pub fn rebalance_partitions(&self) {
+        let nodes = self.nodes.lock().unwrap();
+        let num_nodes = nodes.len();
+        if num_nodes == 0 {
+            return;
+        }
+
+        let mut partitions = self.partitions.lock().unwrap();
+        for (partition_id, partition) in partitions.iter_mut() {
+            let node_index = partition_id % num_nodes;
+            let node_id = nodes.keys().nth(node_index).unwrap().clone();
+            partition.node_id = node_id;
         }
     }
 
@@ -262,23 +295,19 @@ impl Broker {
         Ok(())
     }
 
-    /// Cleans up the old logs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use rust_kafka_like::broker::Broker;
-    ///
-    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
-    /// broker.create_topic("test_topic", None).unwrap();
-    /// broker.publish_with_ack("test_topic", "test_message".to_string(), None).unwrap();
-    /// broker.rotate_logs().unwrap();
-    /// broker.cleanup_logs().unwrap();
-    /// ```
     pub fn cleanup_logs(&self) -> Result<(), BrokerError> {
         self.storage.lock().unwrap().cleanup_logs()?;
         Ok(())
     }
+}
+
+pub struct Node {
+    // ノードの情報
+}
+
+pub struct Partition {
+    pub node_id: String,
+    // パーティションの情報
 }
 
 #[cfg(test)]
