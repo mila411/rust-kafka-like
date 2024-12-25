@@ -26,6 +26,7 @@ pub struct Broker {
     pub consumer_groups: Arc<Mutex<HashMap<String, ConsumerGroup>>>,
     pub nodes: Arc<Mutex<HashMap<String, Node>>>,
     partitions: Arc<Mutex<HashMap<usize, Partition>>>,
+    pub replicas: Arc<Mutex<HashMap<String, Vec<String>>>>,
 }
 
 impl Broker {
@@ -69,20 +70,39 @@ impl Broker {
             consumer_groups: Arc::new(Mutex::new(HashMap::new())),
             nodes: Arc::new(Mutex::new(HashMap::new())),
             partitions: Arc::new(Mutex::new(HashMap::new())),
+            replicas: Arc::new(Mutex::new(HashMap::new())),
+        }
+    }
+
+    pub fn replicate_data(&self, partition_id: usize, _data: &[u8]) {
+        let replicas = self.replicas.lock().unwrap();
+        if let Some(nodes) = replicas.get(&partition_id.to_string()) {
+            for node_id in nodes {
+                println!("Replicating data to node: {}", node_id);
+            }
+        }
+    }
+
+    pub fn detect_failure(&self, node_id: &str) {
+        let mut nodes = self.nodes.lock().unwrap();
+        if nodes.remove(node_id).is_some() {
+            println!("Node {} has failed", node_id);
+            self.rebalance_partitions();
+            self.start_election();
         }
     }
 
     pub fn add_node(&self, node_id: String, node: Node) {
         let mut nodes = self.nodes.lock().unwrap();
         nodes.insert(node_id, node);
-        drop(nodes); // ロックを解放
+        drop(nodes);
         self.rebalance_partitions();
     }
 
     pub fn remove_node(&self, node_id: &str) {
         let mut nodes = self.nodes.lock().unwrap();
         nodes.remove(node_id);
-        drop(nodes); // ロックを解放
+        drop(nodes);
         self.rebalance_partitions();
     }
 
@@ -248,7 +268,7 @@ impl Broker {
 
             self.storage.lock().unwrap().write_message(&message)?;
 
-            // コンシューマーグループへのメッセージ配信
+            // Message delivery to consumer groups
             let message_clone = message.clone();
             let consumer_groups = self.consumer_groups.clone();
             std::thread::spawn(move || {
@@ -301,13 +321,10 @@ impl Broker {
     }
 }
 
-pub struct Node {
-    // ノードの情報
-}
+pub struct Node {}
 
 pub struct Partition {
     pub node_id: String,
-    // パーティションの情報
 }
 
 #[cfg(test)]
@@ -450,17 +467,15 @@ mod tests {
 
     #[test]
     fn test_consumer_group_message_distribution() {
-        println!("テスト開始");
+        println!("Test Start");
         let mut broker = Broker::new("broker1", 3, 2, "logs");
         broker.create_topic("test_topic", None).unwrap();
 
         let received_count = Arc::new((Mutex::new(0), Condvar::new()));
         let total_messages = 10;
 
-        // メッセージ受信を追跡
         let received_messages = Arc::new(Mutex::new(Vec::new()));
 
-        // 各コンシューマーの設定
         for i in 0..2 {
             let received_messages = Arc::clone(&received_messages);
             let received_count = Arc::clone(&received_count);
@@ -484,20 +499,19 @@ mod tests {
             broker
                 .subscribe("test_topic", subscriber, Some("group1"))
                 .unwrap();
-            thread::sleep(Duration::from_millis(100)); // リバランス用の待機
+            thread::sleep(Duration::from_millis(100));
         }
 
-        println!("メッセージ送信開始");
+        println!("Start sending message");
         for i in 0..total_messages {
             let message = format!("message_{}", i);
             println!("Sending: {}", message);
             broker
                 .publish_with_ack("test_topic", message, None)
                 .unwrap();
-            thread::sleep(Duration::from_millis(10)); // 送信間隔を空ける
+            thread::sleep(Duration::from_millis(10));
         }
 
-        // 完了待ち
         let (lock, cvar) = &*received_count;
         let timeout = Duration::from_secs(5);
         let result = cvar
@@ -507,11 +521,31 @@ mod tests {
             .unwrap();
 
         if result.1.timed_out() {
-            panic!("テストがタイムアウトしました: 受信数 {}", *result.0);
+            panic!(
+                "The test timed out: Number of messages received {}",
+                *result.0
+            );
         }
 
         let received = received_messages.lock().unwrap();
         println!("Received messages: {:?}", *received);
         assert_eq!(received.len(), total_messages);
+    }
+
+    #[test]
+    fn test_data_replication() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let node1 = Node { /* Node initialization */ };
+        let node2 = Node { /* Node initialization */ };
+
+        broker.add_node("node1".to_string(), node1);
+        broker.add_node("node2".to_string(), node2);
+
+        let data = b"test data";
+        broker.replicate_data(1, data);
+
+        // Logic to check whether replication was performed correctly
+        // TODO appropriate verification.
+        println!("Data replicated to nodes");
     }
 }
