@@ -3,8 +3,18 @@ name: Rust
 on:
   push:
     branches: ["main"]
+    paths:
+      - "bench/**"
+      - "examples/**"
+      - "src/**"
+      - "Cargo.toml"
   pull_request:
     branches: ["main"]
+    paths:
+      - "bench/**"
+      - "examples/**"
+      - "src/**"
+      - "Cargo.toml"
 
 env:
   CARGO_TERM_COLOR: always
@@ -72,5 +82,5 @@ jobs:
 
       - name: Publish to crates.io
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATEIOTOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish
