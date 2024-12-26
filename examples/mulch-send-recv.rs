@@ -1,6 +1,6 @@
-use rust_kafka_like::broker::Broker;
-use rust_kafka_like::schema::registry::SchemaRegistry;
-use rust_kafka_like::subscriber::types::Subscriber;
+use pilgrimage::broker::Broker;
+use pilgrimage::schema::registry::SchemaRegistry;
+use pilgrimage::subscriber::types::Subscriber;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::thread;

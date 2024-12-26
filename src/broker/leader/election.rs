@@ -26,7 +26,7 @@ impl LeaderElection {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use pilgrimage::broker::leader::election::LeaderElection;
     /// use std::collections::HashMap;
     ///
     /// let peers = HashMap::new();
@@ -52,7 +52,7 @@ impl LeaderElection {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use pilgrimage::broker::leader::election::LeaderElection;
     /// use std::collections::HashMap;
     ///
     /// let peers = HashMap::new();

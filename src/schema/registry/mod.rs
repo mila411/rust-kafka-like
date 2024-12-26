@@ -24,7 +24,7 @@ impl SchemaRegistry {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::registry::SchemaRegistry;
+    /// use pilgrimage::schema::registry::SchemaRegistry;
     ///
     /// let registry = SchemaRegistry::new();
     /// ```
@@ -50,7 +50,7 @@ impl SchemaRegistry {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::registry::SchemaRegistry;
+    /// use pilgrimage::schema::registry::SchemaRegistry;
     ///
     /// let registry = SchemaRegistry::new();
     /// let schema_def = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
@@ -110,7 +110,7 @@ impl SchemaRegistry {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::registry::SchemaRegistry;
+    /// use pilgrimage::schema::registry::SchemaRegistry;
     ///
     /// let registry = SchemaRegistry::new();
     /// let schema_def = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
@@ -137,8 +137,8 @@ impl SchemaRegistry {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::registry::SchemaRegistry;
-    /// use rust_kafka_like::schema::compatibility::Compatibility;
+    /// use pilgrimage::schema::registry::SchemaRegistry;
+    /// use pilgrimage::schema::compatibility::Compatibility;
     ///
     /// let mut registry = SchemaRegistry::new();
     /// registry.set_compatibility(Compatibility::FULL);
@@ -161,7 +161,7 @@ impl SchemaRegistry {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::registry::SchemaRegistry;
+    /// use pilgrimage::schema::registry::SchemaRegistry;
     ///
     /// let registry = SchemaRegistry::new();
     /// let schema_def = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;

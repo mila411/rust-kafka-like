@@ -24,9 +24,9 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 ### Basic usage
 
 ```rust
-use rust_kafka_like::broker::Broker;
-use rust_kafka_like::schema::registry::SchemaRegistry;
-use rust_kafka_like::subscriber::types::Subscriber;
+use pilgrimage::broker::Broker;
+use pilgrimage::schema::registry::SchemaRegistry;
+use pilgrimage::subscriber::types::Subscriber;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
@@ -80,7 +80,7 @@ fn main() {
 The system includes mechanisms for fault detection and automatic recovery. Nodes are monitored using heartbeat signals, and if a fault is detected, the system will attempt to recover automatically.
 
 ```rust
-use rust_kafka_like::broker::Broker;
+use pilgrimage::broker::Broker;
 use std::time::Duration;
 
 fn main() {
@@ -116,3 +116,7 @@ To execute a basic example, use the following command:
 cargo run --example simple-send-recv
 cargo run --example mulch-send-recv
 ```
+
+### Bench
+
+`cargo bench`

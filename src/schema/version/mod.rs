@@ -18,7 +18,7 @@ impl SchemaVersion {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::version::SchemaVersion;
+    /// use pilgrimage::schema::version::SchemaVersion;
     ///
     /// let version = SchemaVersion::new(1);
     /// assert_eq!(version.major, 1);
@@ -44,7 +44,7 @@ impl SchemaVersion {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::version::SchemaVersion;
+    /// use pilgrimage::schema::version::SchemaVersion;
     ///
     /// let version = SchemaVersion::new_with_version(1, 2, 3);
     /// assert_eq!(version.major, 1);
@@ -64,7 +64,7 @@ impl SchemaVersion {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::version::SchemaVersion;
+    /// use pilgrimage::schema::version::SchemaVersion;
     ///
     /// let mut version = SchemaVersion::new(1);
     /// version.increment_major();
@@ -83,7 +83,7 @@ impl SchemaVersion {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::version::SchemaVersion;
+    /// use pilgrimage::schema::version::SchemaVersion;
     ///
     /// let mut version = SchemaVersion::new(1);
     /// version.increment_minor();
@@ -100,7 +100,7 @@ impl SchemaVersion {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::version::SchemaVersion;
+    /// use pilgrimage::schema::version::SchemaVersion;
     ///
     /// let mut version = SchemaVersion::new(1);
     /// version.increment_patch();
@@ -115,7 +115,7 @@ impl SchemaVersion {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::schema::version::SchemaVersion;
+    /// use pilgrimage::schema::version::SchemaVersion;
     ///
     /// let version = SchemaVersion::new_with_version(1, 2, 3);
     /// assert_eq!(version.to_string(), "1.2.3");

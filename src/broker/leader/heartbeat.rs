@@ -18,7 +18,7 @@ impl Heartbeat {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::leader::heartbeat::Heartbeat;
+    /// use pilgrimage::broker::leader::heartbeat::Heartbeat;
     /// use std::time::Duration;
     ///
     /// let heartbeat = Heartbeat::new(Duration::from_secs(1));
@@ -40,8 +40,8 @@ impl Heartbeat {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::leader::heartbeat::Heartbeat;
-    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use pilgrimage::broker::leader::heartbeat::Heartbeat;
+    /// use pilgrimage::broker::leader::election::LeaderElection;
     /// use std::collections::HashMap;
     /// use std::time::Duration;
     ///
@@ -87,8 +87,8 @@ impl Heartbeat {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::leader::heartbeat::Heartbeat;
-    /// use rust_kafka_like::broker::leader::election::LeaderElection;
+    /// use pilgrimage::broker::leader::heartbeat::Heartbeat;
+    /// use pilgrimage::broker::leader::election::LeaderElection;
     /// use std::collections::HashMap;
     ///
     /// let peers = HashMap::new();

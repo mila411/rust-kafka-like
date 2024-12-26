@@ -19,7 +19,7 @@ impl MessageAck {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::message::ack::MessageAck;
+    /// use pilgrimage::message::ack::MessageAck;
     ///
     /// let ack = MessageAck::new(1, "test_topic", 0);
     /// assert_eq!(ack.id, 1);
@@ -41,7 +41,7 @@ impl fmt::Display for MessageAck {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::message::ack::MessageAck;
+    /// use pilgrimage::message::ack::MessageAck;
     ///
     /// let ack = MessageAck::new(1, "test_topic", 0);
     /// assert_eq!(format!("{}", ack), "MessageAck { id: 1, topic: test_topic, partition: 0 }");

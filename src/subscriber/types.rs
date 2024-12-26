@@ -14,7 +14,7 @@ impl Subscriber {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::subscriber::types::Subscriber;
+    /// use pilgrimage::subscriber::types::Subscriber;
     ///
     /// let subscriber = Subscriber::new(
     ///     "test_subscriber",

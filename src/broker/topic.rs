@@ -61,7 +61,7 @@ impl Topic {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::topic::Topic;
+    /// use pilgrimage::broker::topic::Topic;
     ///
     /// let topic = Topic::new("test_topic", 3, 2);
     /// assert_eq!(topic.name, "test_topic");
@@ -99,8 +99,8 @@ impl Topic {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::topic::Topic;
-    /// use rust_kafka_like::subscriber::types::Subscriber;
+    /// use pilgrimage::broker::topic::Topic;
+    /// use pilgrimage::subscriber::types::Subscriber;
     ///
     /// let mut topic = Topic::new("test_topic", 3, 2);
     /// let subscriber = Subscriber::new("sub1", Box::new(|msg: String| {
@@ -127,8 +127,8 @@ impl Topic {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::topic::Topic;
-    /// use rust_kafka_like::broker::error::BrokerError;
+    /// use pilgrimage::broker::topic::Topic;
+    /// use pilgrimage::broker::error::BrokerError;
     ///
     /// let mut topic = Topic::new("test_topic", 3, 2);
     /// let result = topic.publish("test_message".to_string(), None);
@@ -191,7 +191,7 @@ impl Partition {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::topic::Partition;
+    /// use pilgrimage::broker::topic::Partition;
     ///
     /// let mut partition = Partition {
     ///     id: 0,
@@ -217,7 +217,7 @@ impl Partition {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::topic::Partition;
+    /// use pilgrimage::broker::topic::Partition;
     ///
     /// let mut partition = Partition {
     ///     id: 0,

@@ -15,7 +15,7 @@ impl From<std::io::Error> for BrokerError {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::error::BrokerError;
+    /// use pilgrimage::broker::error::BrokerError;
     /// use std::io;
     ///
     /// let io_error = io::Error::new(io::ErrorKind::Other, "an I/O error");
@@ -35,7 +35,7 @@ impl fmt::Display for BrokerError {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::error::BrokerError;
+    /// use pilgrimage::broker::error::BrokerError;
     ///
     /// let error = BrokerError::TopicError("topic not found".to_string());
     /// assert_eq!(format!("{}", error), "Topic error: topic not found");
@@ -56,7 +56,7 @@ impl Error for BrokerError {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::error::BrokerError;
+    /// use pilgrimage::broker::error::BrokerError;
     /// use std::error::Error;
     /// use std::io;
     ///

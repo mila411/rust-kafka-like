@@ -24,7 +24,7 @@ impl ConsumerGroup {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::consumer::group::ConsumerGroup;
+    /// use pilgrimage::broker::consumer::group::ConsumerGroup;
     ///
     /// let group = ConsumerGroup::new("group1");
     /// assert_eq!(group.group_id, "group1");
@@ -47,8 +47,8 @@ impl ConsumerGroup {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::consumer::group::ConsumerGroup;
-    /// use rust_kafka_like::subscriber::types::Subscriber;
+    /// use pilgrimage::broker::consumer::group::ConsumerGroup;
+    /// use pilgrimage::subscriber::types::Subscriber;
     ///
     /// let group = ConsumerGroup::new("group1");
     /// let subscriber = Subscriber::new("consumer1", Box::new(|msg: String| {

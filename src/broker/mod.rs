@@ -43,7 +43,7 @@ impl Broker {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::Broker;
+    /// use pilgrimage::broker::Broker;
     ///
     /// let broker = Broker::new("broker1", 3, 2, "logs");
     /// assert_eq!(broker.id, "broker1");
@@ -92,7 +92,7 @@ impl Broker {
     pub fn detect_failure(&self, node_id: &str) {
         let mut nodes = self.nodes.lock().unwrap();
         if nodes.remove(node_id).is_some() {
-            println!("Node {} has failed", node_id);
+            // println!("Node {} has failed", node_id);
             drop(nodes);
             self.rebalance_partitions();
             self.start_election();
@@ -131,8 +131,8 @@ impl Broker {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::Broker;
-    /// use rust_kafka_like::broker::Node;
+    /// use pilgrimage::broker::Broker;
+    /// use pilgrimage::broker::Node;
     /// use std::sync::{Arc, Mutex};
     ///
     /// let broker = Broker::new("broker1", 3, 2, "logs");
@@ -151,7 +151,7 @@ impl Broker {
         if let Some((new_leader, _)) = nodes.iter().next() {
             let mut leader = self.leader.lock().unwrap();
             *leader = Some(new_leader.clone());
-            println!("New leader elected: {}", new_leader);
+            // println!("New leader elected: {}", new_leader);
             return true;
         }
         false
@@ -171,7 +171,7 @@ impl Broker {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::Broker;
+    /// use pilgrimage::broker::Broker;
     ///
     /// let mut broker = Broker::new("broker1", 3, 2, "logs");
     /// broker.create_topic("test_topic", None).unwrap();
@@ -206,8 +206,8 @@ impl Broker {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::Broker;
-    /// use rust_kafka_like::subscriber::types::Subscriber;
+    /// use pilgrimage::broker::Broker;
+    /// use pilgrimage::subscriber::types::Subscriber;
     ///
     /// let mut broker = Broker::new("broker1", 3, 2, "logs");
     /// broker.create_topic("test_topic", None).unwrap();
@@ -255,7 +255,7 @@ impl Broker {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::Broker;
+    /// use pilgrimage::broker::Broker;
     ///
     /// let mut broker = Broker::new("broker1", 3, 2, "logs");
     /// broker.create_topic("test_topic", None).unwrap();
@@ -313,7 +313,7 @@ impl Broker {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::Broker;
+    /// use pilgrimage::broker::Broker;
     ///
     /// let mut broker = Broker::new("broker1", 3, 2, "logs");
     /// broker.create_topic("test_topic", None).unwrap();
@@ -331,6 +331,7 @@ impl Broker {
     }
 }
 
+#[derive(Clone)]
 pub struct Node {
     pub data: Arc<Mutex<Vec<u8>>>,
 }
@@ -401,7 +402,8 @@ mod tests {
             .publish_with_ack("test_topic", "test_message_3".to_string(), None)
             .unwrap();
 
-        let messages = Storage::read_messages(test_log).unwrap();
+        let storage = Storage::new(test_log).unwrap();
+        let messages = storage.read_messages().unwrap();
         assert_eq!(
             messages.len(),
             3,
@@ -428,7 +430,8 @@ mod tests {
         broker.rotate_logs().unwrap();
         broker.cleanup_logs().unwrap();
 
-        let messages = Storage::read_messages(test_log).unwrap();
+        let storage = Storage::new(test_log).unwrap();
+        let messages = storage.read_messages().unwrap();
         assert!(messages.is_empty());
 
         cleanup_test_logs(test_log);
@@ -640,5 +643,101 @@ mod tests {
             let expected_node_id = nodes.keys().nth(node_index).unwrap();
             assert_eq!(&partition.node_id, expected_node_id);
         }
+    }
+
+    #[test]
+    fn test_add_existing_node() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let node = Node {
+            data: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        broker.add_node("node1".to_string(), node.clone());
+        broker.add_node("node1".to_string(), node);
+
+        let nodes = broker.nodes.lock().unwrap();
+        assert_eq!(nodes.len(), 1);
+    }
+
+    #[test]
+    fn test_remove_nonexistent_node() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        broker.remove_node("node1");
+
+        let nodes = broker.nodes.lock().unwrap();
+        assert_eq!(nodes.len(), 0);
+    }
+
+    #[test]
+    fn test_replicate_to_nonexistent_node() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let data = b"test data";
+
+        broker.replicate_data(1, data);
+
+        let nodes = broker.nodes.lock().unwrap();
+        assert!(nodes.is_empty());
+    }
+
+    #[test]
+    fn test_election_with_no_nodes() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let elected = broker.start_election();
+
+        assert!(!elected);
+    }
+
+    #[test]
+    fn test_add_invalid_node() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let node = Node {
+            data: Arc::new(Mutex::new(Vec::new())),
+        };
+
+        broker.add_node("node1".to_string(), node.clone());
+        broker.add_node("node1".to_string(), node);
+
+        let nodes = broker.nodes.lock().unwrap();
+        assert_eq!(nodes.len(), 1, "Duplicate nodes should not be added.");
+    }
+
+    #[test]
+    fn test_elect_leader_with_no_nodes() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let elected = broker.start_election();
+        assert!(
+            !elected,
+            "If there are no nodes, the leader election should fail."
+        );
+    }
+
+    #[test]
+    fn test_replicate_to_nonexistent_nodes() {
+        let broker = Broker::new("broker1", 3, 2, "logs");
+        let data = b"test data";
+
+        broker.replicate_data(1, data);
+
+        let nodes = broker.nodes.lock().unwrap();
+        assert!(
+            nodes.is_empty(),
+            "If the node does not exist, replication should fail."
+        );
+    }
+
+    #[test]
+    fn test_rotate_logs_with_invalid_storage() {
+        let temp_dir = format!("/tmp/test_logs_{}", std::process::id());
+        let invalid_path = format!("{}/invalid", temp_dir);
+
+        let result = std::panic::catch_unwind(|| {
+            let mut broker = Broker::new("broker1", 3, 2, &invalid_path);
+            broker.rotate_logs()
+        });
+
+        assert!(
+            result.is_err(),
+            "Operations on invalid storage paths should fail."
+        );
     }
 }

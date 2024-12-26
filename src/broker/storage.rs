@@ -1,6 +1,6 @@
 use std::fs::{File, OpenOptions};
-use std::io::BufRead;
-use std::io::{self, BufReader, BufWriter, Write};
+use std::io::{self, BufRead, BufReader, BufWriter, Write};
+use std::path::Path;
 
 pub struct Storage {
     file: BufWriter<File>,
@@ -17,7 +17,7 @@ impl Storage {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::storage::Storage;
+    /// use pilgrimage::broker::storage::Storage;
     ///
     /// let storage = Storage::new("test_logs").unwrap();
     /// ```
@@ -44,32 +44,30 @@ impl Storage {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::storage::Storage;
+    /// use pilgrimage::broker::storage::Storage;
     ///
     /// let mut storage = Storage::new("test_logs").unwrap();
     /// storage.write_message("test_message").unwrap();
     /// ```
     pub fn write_message(&mut self, message: &str) -> io::Result<()> {
-        writeln!(self.file, "{}", message)?;
+        self.file.write_all(message.as_bytes())?;
+        self.file.write_all(b"\n")?;
         self.file.flush()?;
         Ok(())
     }
 
-    /// Reads messages from the storage.
-    ///
-    /// # Arguments
-    ///
-    /// * `path` - The path to the storage file.
+    /// Reads all messages from the storage.
     ///
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::storage::Storage;
+    /// use pilgrimage::broker::storage::Storage;
     ///
-    /// let messages = Storage::read_messages("test_logs").unwrap();
+    /// let storage = Storage::new("test_logs").unwrap();
+    /// let messages = storage.read_messages().unwrap();
     /// ```
-    pub fn read_messages(path: &str) -> io::Result<Vec<String>> {
-        let file = File::open(path)?;
+    pub fn read_messages(&self) -> io::Result<Vec<String>> {
+        let file = File::open(&self.path)?;
         let reader = BufReader::new(file);
         let mut messages = Vec::new();
         for line in reader.lines() {
@@ -78,6 +76,16 @@ impl Storage {
         Ok(messages)
     }
 
+    /// Rotates the current log file.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use pilgrimage::broker::storage::Storage;
+    ///
+    /// let mut storage = Storage::new("test_logs").unwrap();
+    /// storage.rotate_logs().unwrap();
+    /// ```
     pub fn rotate_logs(&mut self) -> io::Result<()> {
         let new_path = format!("{}.old", self.path);
         std::fs::rename(&self.path, &new_path)?;
@@ -96,7 +104,7 @@ impl Storage {
     /// # Examples
     ///
     /// ```
-    /// use rust_kafka_like::broker::storage::Storage;
+    /// use pilgrimage::broker::storage::Storage;
     ///
     /// let mut storage = Storage::new("test_logs").unwrap();
     /// storage.write_message("test_message").unwrap();
@@ -105,9 +113,71 @@ impl Storage {
     /// ```
     pub fn cleanup_logs(&self) -> io::Result<()> {
         let old_path = format!("{}.old", self.path);
-        if std::fs::metadata(&old_path).is_ok() {
+        if Path::new(&old_path).exists() {
             std::fs::remove_file(&old_path)?;
+        } else {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                "Old log file does not exist",
+            ));
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_write_message_to_invalid_path() {
+        let invalid_path = "/invalid_path/test_logs";
+        let result = Storage::new(invalid_path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_read_message_from_nonexistent_file() {
+        let test_log = format!("/tmp/test_log_{}", std::process::id());
+
+        assert!(!Path::new(&test_log).exists());
+
+        let storage = Storage::new(&test_log).unwrap();
+        std::fs::remove_file(&test_log).unwrap_or(());
+
+        let result = storage.read_messages();
+        assert!(
+            result.is_err(),
+            "Loading a non-existent file should return an error"
+        );
+    }
+
+    #[test]
+    fn test_rotate_logs_with_invalid_path() {
+        let invalid_path = "/invalid_path/test_logs";
+        let mut storage = Storage::new(invalid_path).unwrap_or_else(|_| Storage {
+            path: invalid_path.to_string(),
+            file: BufWriter::new(File::create("/dev/null").unwrap()),
+        });
+        let result = storage.rotate_logs();
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_cleanup_logs_with_invalid_path() {
+        let invalid_path = format!("/tmp/nonexistent_{}/test.log", std::process::id());
+        assert!(!Path::new(&invalid_path).exists());
+
+        let storage = Storage {
+            path: invalid_path,
+            file: BufWriter::new(File::create("/dev/null").unwrap()),
+        };
+
+        let result = storage.cleanup_logs();
+        assert!(
+            result.is_err(),
+            "Deleting a file that does not exist should return an error"
+        );
     }
 }
