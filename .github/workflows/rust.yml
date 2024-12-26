@@ -29,10 +29,24 @@ jobs:
       - name: Build
         run: cargo build
 
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly Rust (2024 Edition)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-unknown-linux-gnu
+          override: true
+
       - name: Test
         run: cargo test
 
-      - name: Test
+      - name: Benchmark
         run: cargo bench
 
       - name: Run simple example
@@ -40,3 +54,23 @@ jobs:
 
       - name: Run mulch example
         run: cargo run --example mulch-send-recv
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install nightly Rust (2024 Edition)
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: x86_64-unknown-linux-gnu
+          override: true
+
+      - name: Publish to crates.io
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CRATEIOTOKEN }}
+        run: cargo publish
