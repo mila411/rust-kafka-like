@@ -56,15 +56,6 @@ jobs:
       - name: Test
         run: cargo test
 
-      - name: Benchmark
-        run: cargo bench
-
-      - name: Run simple example
-        run: cargo run --example simple-send-recv
-
-      - name: Run mulch example
-        run: cargo run --example mulch-send-recv
-
   publish:
     runs-on: ubuntu-latest
     needs: test
@@ -79,6 +70,19 @@ jobs:
           toolchain: nightly
           target: x86_64-unknown-linux-gnu
           override: true
+
+      - name: Bump version, create tag and release
+        id: version
+        uses: cycjimmy/semantic-release-action@v3
+        with:
+          dry_run: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Update Cargo.toml version
+        run: |
+          version=$(echo ${{ steps.version.outputs.new_release_version }} | sed 's/^v//')
+          sed -i.bak "s/^version = \".*\"/version = \"$version\"/" Cargo.toml
 
       - name: Publish to crates.io
         env:
