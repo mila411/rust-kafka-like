@@ -14,27 +14,35 @@ use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Condvar, Mutex};
 
 pub struct MessageQueue {
     queue: Mutex<VecDeque<String>>,
+    condvar: Condvar,
 }
 
 impl MessageQueue {
     pub fn new() -> Self {
         MessageQueue {
             queue: Mutex::new(VecDeque::new()),
+            condvar: Condvar::new(),
         }
     }
 
     pub fn send(&self, message: String) {
         let mut queue = self.queue.lock().unwrap();
         queue.push_back(message);
+        self.condvar.notify_one();
     }
 
-    pub fn receive(&self) -> Option<String> {
+    pub fn receive(&self) -> String {
         let mut queue = self.queue.lock().unwrap();
-        queue.pop_front()
+        loop {
+            match queue.pop_front() {
+                Some(message) => return message,
+                None => queue = self.condvar.wait(queue).unwrap(),
+            }
+        }
     }
 }
 
@@ -106,7 +114,7 @@ impl Broker {
     }
 
     pub fn receive_message(&self) -> Option<String> {
-        self.message_queue.receive()
+        Some(self.message_queue.receive())
     }
 
     pub fn replicate_data(&self, partition_id: usize, data: &[u8]) {
@@ -537,7 +545,6 @@ mod tests {
             let subscriber = Subscriber::new(
                 &format!("consumer_{}", i),
                 Box::new(move |msg: String| {
-                    println!("Consumer {} received: {}", i, msg);
                     received_messages.lock().unwrap().push(msg);
 
                     let (lock, cvar) = &*received_count;
@@ -772,5 +779,28 @@ mod tests {
             result.is_err(),
             "Operations on invalid storage paths should fail."
         );
+    }
+
+    #[test]
+    fn test_multithreaded_message_processing() {
+        let broker = Arc::new(Broker::new("broker1", 3, 2, "logs"));
+
+        let broker_sender = Arc::clone(&broker);
+        let sender_handle = thread::spawn(move || {
+            for i in 0..10 {
+                let message = format!("Message {}", i);
+                broker_sender.send_message(message);
+            }
+        });
+
+        let broker_receiver = Arc::clone(&broker);
+        let receiver_handle = thread::spawn(move || {
+            for _ in 0..10 {
+                if let Some(_message) = broker_receiver.receive_message() {}
+            }
+        });
+
+        sender_handle.join().unwrap();
+        receiver_handle.join().unwrap();
     }
 }

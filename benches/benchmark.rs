@@ -1,32 +1,10 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 use pilgrimage::broker::{Broker, Node};
 use std::sync::{Arc, Mutex};
+use std::thread;
 
 fn broker_benchmark(c: &mut Criterion) {
-    let mut group = c.benchmark_group("broker");
-
-    group.bench_function("add_node", |b| {
-        b.iter(|| {
-            let broker = Broker::new("broker1", 3, 2, "storage_path");
-            let node = Node {
-                data: Arc::new(Mutex::new(Vec::new())),
-            };
-            broker.add_node("node1".to_string(), node);
-        })
-    });
-
-    group.bench_function("replicate_data", |b| {
-        b.iter(|| {
-            let broker = Broker::new("broker1", 3, 2, "storage_path");
-            let node = Node {
-                data: Arc::new(Mutex::new(Vec::new())),
-            };
-            broker.add_node("node1".to_string(), node);
-
-            let data = b"test data";
-            broker.replicate_data(1, data);
-        })
-    });
+    let mut group = c.benchmark_group("broker_benchmarks");
 
     group.bench_function("start_election", |b| {
         b.iter(|| {
@@ -67,6 +45,54 @@ fn broker_benchmark(c: &mut Criterion) {
             for _ in 0..100 {
                 broker.receive_message();
             }
+        })
+    });
+
+    group.bench_function("send_message_multithreaded", |b| {
+        b.iter(|| {
+            let broker = Arc::new(Broker::new("broker1", 3, 2, "storage_path"));
+
+            let broker_sender = Arc::clone(&broker);
+            let sender_handle = thread::spawn(move || {
+                for i in 0..10 {
+                    let message = format!("Message {}", i);
+                    broker_sender.send_message(message);
+                }
+            });
+
+            let broker_receiver = Arc::clone(&broker);
+            let receiver_handle = thread::spawn(move || {
+                for _ in 0..10 {
+                    if let Some(_message) = broker_receiver.receive_message() {}
+                }
+            });
+
+            sender_handle.join().unwrap();
+            receiver_handle.join().unwrap();
+        })
+    });
+
+    group.bench_function("process_messages_multithreaded", |b| {
+        b.iter(|| {
+            let broker = Arc::new(Broker::new("broker1", 3, 2, "storage_path"));
+
+            let broker_sender = Arc::clone(&broker);
+            let sender_handle = thread::spawn(move || {
+                for i in 0..100 {
+                    let message = format!("message {}", i);
+                    broker_sender.send_message(message);
+                }
+            });
+
+            let broker_receiver = Arc::clone(&broker);
+            let receiver_handle = thread::spawn(move || {
+                for _ in 0..100 {
+                    if let Some(_message) = broker_receiver.receive_message() {}
+                }
+            });
+
+            sender_handle.join().unwrap();
+            receiver_handle.join().unwrap();
         })
     });
 
