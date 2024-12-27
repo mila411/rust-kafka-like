@@ -37,57 +37,40 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 
 - Rust 1.51.0 or later
 
+### Functionality Implemented
+
+- **Message Queue**: Efficient message queue implementation using `Mutex` and `VecDeque`.
+- **Broker**: Core broker functionality including message handling, node management, and leader election.
+- **Consumer Groups**: Support for consumer groups to allow multiple consumers to read from the same topic.
+- **Leader Election**: Mechanism for electing a leader among brokers to manage partitions and replication.
+- **Storage**: Persistent storage of messages using local files.
+- **Replication**: Replication of messages across multiple brokers for fault tolerance.
+- **Schema Registry**: Management of message schemas to ensure compatibility between producers and consumers.
+- **Benchmarking**: Comprehensive benchmarking tests to measure performance of various components.
+
 ### Basic usage
 
 ```rust
-use pilgrimage::broker::Broker;
-use pilgrimage::schema::registry::SchemaRegistry;
-use pilgrimage::subscriber::types::Subscriber;
+use pilgrimage::broker::{Broker, Node};
 use std::sync::{Arc, Mutex};
-use std::thread;
 
 fn main() {
-    // Create a schema registry
-    let schema_registry = SchemaRegistry::new();
-    let schema_def = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
-    schema_registry.register_schema("test_topic", schema_def).unwrap();
+    // Broker Creation
+    let broker = Broker::new("broker1", 3, 2, "storage_path");
 
-    // Create a broker
-    let broker = Arc::new(Mutex::new(Broker::new("broker1", 3, 2, "logs")));
+    // Adding a node
+    let node = Node {
+        data: Arc::new(Mutex::new(Vec::new())),
+    };
+    broker.add_node("node1".to_string(), node);
 
-    // Create a topic
-    {
-        let mut broker = broker.lock().unwrap();
-        broker.create_topic("test_topic", None).unwrap();
+    // Send a message
+    broker.send_message("Hello, world!".to_string());
+
+    // Message received
+    if let Some(message) = broker.receive_message() {
+        println!("Received: {}", message);
     }
-
-    // Create a producer
-    let broker_producer = Arc::clone(&broker);
-    let producer_handle = thread::spawn(move || {
-        let message = "test_message".to_string();
-        let mut broker = broker_producer.lock().unwrap();
-        broker.publish_with_ack("test_topic", message, None).unwrap();
-    });
-
-    // Create a consumer
-    let broker_consumer = Arc::clone(&broker);
-    let consumer_handle = thread::spawn(move || {
-        let subscriber = Subscriber::new(
-            "consumer_1",
-            Box::new(move |msg: String| {
-                println!("Consumed message: {}", msg);
-            }),
-        );
-        broker_consumer
-            .lock()
-            .unwrap()
-            .subscribe("test_topic", subscriber, Some("group1"))
-            .unwrap();
-    });
-
-    // Wait for producer and consumer to finish
-    producer_handle.join().unwrap();
-    consumer_handle.join().unwrap();
 }
 ```
 
@@ -113,7 +96,6 @@ fn main() {
 
 1. Add security features
 2. High Availability and Scalability
-3. Strengthening the mechanism for selecting leaders
 
 ### License
 

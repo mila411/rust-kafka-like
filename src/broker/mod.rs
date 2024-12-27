@@ -12,8 +12,31 @@ use crate::broker::topic::Topic;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
+use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
+
+pub struct MessageQueue {
+    queue: Mutex<VecDeque<String>>,
+}
+
+impl MessageQueue {
+    pub fn new() -> Self {
+        MessageQueue {
+            queue: Mutex::new(VecDeque::new()),
+        }
+    }
+
+    pub fn send(&self, message: String) {
+        let mut queue = self.queue.lock().unwrap();
+        queue.push_back(message);
+    }
+
+    pub fn receive(&self) -> Option<String> {
+        let mut queue = self.queue.lock().unwrap();
+        queue.pop_front()
+    }
+}
 
 pub struct Broker {
     pub id: String,
@@ -28,6 +51,7 @@ pub struct Broker {
     partitions: Arc<Mutex<HashMap<usize, Partition>>>,
     pub replicas: Arc<Mutex<HashMap<String, Vec<String>>>>,
     pub leader: Arc<Mutex<Option<String>>>,
+    pub message_queue: Arc<MessageQueue>,
 }
 
 impl Broker {
@@ -73,7 +97,16 @@ impl Broker {
             partitions: Arc::new(Mutex::new(HashMap::new())),
             replicas: Arc::new(Mutex::new(HashMap::new())),
             leader: Arc::new(Mutex::new(None)),
+            message_queue: Arc::new(MessageQueue::new()),
         }
+    }
+
+    pub fn send_message(&self, message: String) {
+        self.message_queue.send(message);
+    }
+
+    pub fn receive_message(&self) -> Option<String> {
+        self.message_queue.receive()
     }
 
     pub fn replicate_data(&self, partition_id: usize, data: &[u8]) {
