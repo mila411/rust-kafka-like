@@ -1,4 +1,20 @@
-# rust kafka-like
+<p align="center">
+  <img src=".github/images/logo.png" alt="logo" width=65%>
+</p>
+
+<p align="center">
+    <em>
+        Very few dependencies
+    </em>
+</p>
+
+<p align="center">
+    <a href="https://tip.golang.org/doc/go1.19">
+      <img src="https://img.shields.io/badge/Rust-1.51-007ACC.svg?logo=Rust">
+    </a>
+</p>
+
+# pilgrimage
 
 This is a Rust implementation of a distributed messaging system. It uses a simple design inspired by Apache Kafka. It simply records messages to local files.
 
@@ -102,11 +118,6 @@ fn main() {
 ### License
 
 MIT
-
-### Information
-
-- main.rs: Main implementation
-- logs: Persistent Message Directory
 
 ### Examples
 
