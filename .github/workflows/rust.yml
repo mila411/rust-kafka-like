@@ -53,8 +53,11 @@ jobs:
           target: x86_64-unknown-linux-gnu
           override: true
 
-      - name: Test
-        run: cargo test
+      - name: Install Tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run tests with coverage
+        run: cargo tarpaulin --out Xml
 
       - name: Single Example
         run: cargo run --example simple-send-recv
@@ -64,6 +67,14 @@ jobs:
 
       - name: Thread Example
         run: cargo run --example thread-send-recv
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./cobertura.xml
+          fail_ci_if_error: true
+          slug: mila411/pilgrimage
 
   publish:
     runs-on: ubuntu-latest
