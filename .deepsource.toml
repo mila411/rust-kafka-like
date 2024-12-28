@@ -1,0 +1,16 @@
+version = 1
+
+test_patterns = [
+  ".github/**",
+  ".gitignore",
+  "CODE_OF_CONDUCT.md",
+  "CONTRIBUTING.md",
+  "LICENSE",
+  "README.md"
+]
+
+[[analyzers]]
+name = "rust"
+
+  [analyzers.meta]
+  msrv = "stable"
