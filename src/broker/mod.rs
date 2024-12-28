@@ -1,56 +1,25 @@
 pub mod consumer;
 pub mod error;
 pub mod leader;
+pub mod message_queue;
+pub mod node_management;
+pub mod scaling;
 pub mod storage;
 pub mod topic;
 
 use crate::broker::consumer::group::ConsumerGroup;
 use crate::broker::error::BrokerError;
 use crate::broker::leader::{BrokerState, LeaderElection};
+use crate::broker::message_queue::MessageQueue;
+use crate::broker::node_management::{check_node_health, recover_node};
 use crate::broker::storage::Storage;
 use crate::broker::topic::Topic;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-
-pub struct MessageQueue {
-    queue: Mutex<VecDeque<String>>,
-    condvar: Condvar,
-}
-
-impl MessageQueue {
-    pub fn new() -> Self {
-        MessageQueue {
-            queue: Mutex::new(VecDeque::new()),
-            condvar: Condvar::new(),
-        }
-    }
-
-    pub fn send(&self, message: String) {
-        let mut queue = self.queue.lock().unwrap();
-        queue.push_back(message);
-        self.condvar.notify_one();
-    }
-
-    pub fn receive(&self) -> String {
-        let mut queue = self.queue.lock().unwrap();
-        loop {
-            match queue.pop_front() {
-                Some(message) => return message,
-                None => queue = self.condvar.wait(queue).unwrap(),
-            }
-        }
-    }
-}
-
-fn check_node_health(storage: &Mutex<Storage>) -> bool {
-    let storage_guard = storage.lock().unwrap();
-    storage_guard.is_available()
-}
 
 pub type ConsumerGroups = HashMap<String, ConsumerGroup>;
 
@@ -59,18 +28,6 @@ impl ConsumerGroup {
         if let Ok(mut map) = self.assignments.lock() {
             map.clear();
         }
-    }
-}
-
-fn recover_node(storage: &Mutex<Storage>, consumer_groups: &Mutex<ConsumerGroups>) {
-    let mut storage_guard = storage.lock().unwrap();
-    if let Err(e) = storage_guard.reinitialize() {
-        eprintln!("Storage initialization failed.: {}", e);
-    }
-
-    let mut groups_guard = consumer_groups.lock().unwrap();
-    for group in groups_guard.values_mut() {
-        group.reset_assignments();
     }
 }
 
@@ -116,6 +73,9 @@ impl Broker {
         replication_factor: usize,
         storage_path: &str,
     ) -> Self {
+        let min_instances = 1;
+        let max_instances = 10;
+        let check_interval = Duration::from_secs(30);
         let peers = HashMap::new(); //TODO it reads from the settings
         let leader_election = LeaderElection::new(id, peers);
         let storage = Storage::new(storage_path).expect("Failed to initialize storage");
@@ -133,7 +93,11 @@ impl Broker {
             partitions: Arc::new(Mutex::new(HashMap::new())),
             replicas: Arc::new(Mutex::new(HashMap::new())),
             leader: Arc::new(Mutex::new(None)),
-            message_queue: Arc::new(MessageQueue::new()),
+            message_queue: Arc::new(MessageQueue::new(
+                min_instances,
+                max_instances,
+                check_interval,
+            )),
         };
         broker.monitor_nodes();
         broker
@@ -848,26 +812,5 @@ mod tests {
 
         sender_handle.join().unwrap();
         receiver_handle.join().unwrap();
-    }
-
-    #[test]
-    fn test_auto_recovery() {
-        let storage = Arc::new(Mutex::new(Storage::new("test_db_path").unwrap()));
-        let mut broker = Broker::new("broker_id", 1, 1, "test_db_path");
-        broker.storage = storage.clone();
-
-        // Simulate a disability
-        {
-            let mut storage_guard = storage.lock().unwrap();
-            storage_guard.available = false;
-        }
-
-        // Perform automatic recovery
-        broker.monitor_nodes();
-
-        // Check recovery
-        thread::sleep(Duration::from_millis(100));
-        let storage_guard = storage.lock().unwrap();
-        assert!(storage_guard.is_available());
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "pilgrimage"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2024"
 authors = ["Kenny Miller Song"]
 description = "A Kafka-like message broker in Rust"
@@ -17,6 +17,8 @@ crate-type = ["rlib"]
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+log = "0.4"
+simplelog = "0.9"
 
 [dev-dependencies]
 criterion = "0.3"

@@ -7,6 +7,7 @@ pub enum BrokerError {
     PartitionError(String),
     AckError(String),
     IoError(std::io::Error),
+    ScalingError(String),
 }
 
 impl From<std::io::Error> for BrokerError {
@@ -46,6 +47,7 @@ impl fmt::Display for BrokerError {
             BrokerError::PartitionError(msg) => write!(f, "Partition error: {}", msg),
             BrokerError::AckError(msg) => write!(f, "Acknowledgment error: {}", msg),
             BrokerError::IoError(err) => write!(f, "IO error: {}", err),
+            BrokerError::ScalingError(msg) => write!(f, "Scaling Error: {}", msg),
         }
     }
 }
