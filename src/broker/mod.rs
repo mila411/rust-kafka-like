@@ -1,6 +1,8 @@
 pub mod consumer;
 pub mod error;
 pub mod leader;
+pub mod message_queue;
+pub mod node_management;
 pub mod scaling;
 pub mod storage;
 pub mod topic;
@@ -8,66 +10,16 @@ pub mod topic;
 use crate::broker::consumer::group::ConsumerGroup;
 use crate::broker::error::BrokerError;
 use crate::broker::leader::{BrokerState, LeaderElection};
-use crate::broker::scaling::AutoScaler;
+use crate::broker::message_queue::MessageQueue;
+use crate::broker::node_management::{check_node_health, recover_node};
 use crate::broker::storage::Storage;
 use crate::broker::topic::Topic;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
-use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-
-pub struct MessageQueue {
-    queue: Mutex<VecDeque<String>>,
-    condvar: Condvar,
-    auto_scaler: Arc<AutoScaler>,
-}
-
-impl MessageQueue {
-    pub fn new(min_instances: usize, max_instances: usize, check_interval: Duration) -> Self {
-        let auto_scaler = Arc::new(AutoScaler::new(min_instances, max_instances));
-        auto_scaler.clone().monitor_and_scale(check_interval);
-
-        MessageQueue {
-            queue: Mutex::new(VecDeque::new()),
-            condvar: Condvar::new(),
-            auto_scaler,
-        }
-    }
-
-    pub fn send(&self, message: String) {
-        let mut queue = self.queue.lock().unwrap();
-        queue.push_back(message);
-        self.condvar.notify_one();
-
-        // Scale up based on the length of the queue
-        if queue.len() > 10 {
-            let _ = self.auto_scaler.scale_up();
-        }
-    }
-
-    pub fn receive(&self) -> String {
-        let mut queue = self.queue.lock().unwrap();
-        while queue.is_empty() {
-            queue = self.condvar.wait(queue).unwrap();
-        }
-        let message = queue.pop_front().unwrap();
-
-        // Scale down based on the length of the cue
-        if queue.len() < 5 {
-            let _ = self.auto_scaler.scale_down();
-        }
-
-        message
-    }
-}
-
-fn check_node_health(storage: &Mutex<Storage>) -> bool {
-    let storage_guard = storage.lock().unwrap();
-    storage_guard.is_available()
-}
 
 pub type ConsumerGroups = HashMap<String, ConsumerGroup>;
 
@@ -76,18 +28,6 @@ impl ConsumerGroup {
         if let Ok(mut map) = self.assignments.lock() {
             map.clear();
         }
-    }
-}
-
-fn recover_node(storage: &Mutex<Storage>, consumer_groups: &Mutex<ConsumerGroups>) {
-    let mut storage_guard = storage.lock().unwrap();
-    if let Err(e) = storage_guard.reinitialize() {
-        eprintln!("Storage initialization failed.: {}", e);
-    }
-
-    let mut groups_guard = consumer_groups.lock().unwrap();
-    for group in groups_guard.values_mut() {
-        group.reset_assignments();
     }
 }
 
@@ -872,69 +812,5 @@ mod tests {
 
         sender_handle.join().unwrap();
         receiver_handle.join().unwrap();
-    }
-
-    #[test]
-    fn test_auto_recovery() {
-        let storage = Arc::new(Mutex::new(Storage::new("test_db_path").unwrap()));
-        let mut broker = Broker::new("broker_id", 1, 1, "test_db_path");
-        broker.storage = storage.clone();
-
-        // Simulate a disability
-        {
-            let mut storage_guard = storage.lock().unwrap();
-            storage_guard.available = false;
-        }
-
-        // Perform automatic recovery
-        broker.monitor_nodes();
-
-        // Check recovery
-        thread::sleep(Duration::from_millis(100));
-        let storage_guard = storage.lock().unwrap();
-        assert!(storage_guard.is_available());
-    }
-
-    #[test]
-    fn test_auto_scaler_scale_up() {
-        let auto_scaler = Arc::new(AutoScaler::new(1, 3));
-        let auto_scaler_clone = Arc::clone(&auto_scaler);
-
-        // Test scale-up
-        auto_scaler_clone.scale_up().unwrap();
-        auto_scaler_clone.scale_up().unwrap();
-
-        let instances = auto_scaler_clone.current_instances.lock().unwrap();
-        assert_eq!(*instances, 3);
-    }
-
-    #[test]
-    fn test_auto_scaler_scale_down() {
-        let auto_scaler = Arc::new(AutoScaler::new(1, 3));
-        let auto_scaler_clone = Arc::clone(&auto_scaler);
-
-        // Test scale down after scale up
-        auto_scaler_clone.scale_up().unwrap();
-        auto_scaler_clone.scale_up().unwrap();
-        auto_scaler_clone.scale_down().unwrap();
-
-        let instances = auto_scaler_clone.current_instances.lock().unwrap();
-        assert_eq!(*instances, 2);
-    }
-
-    #[test]
-    fn test_auto_scaler_monitor_and_scale() {
-        let auto_scaler = Arc::new(AutoScaler::new(1, 3));
-        let auto_scaler_clone = Arc::clone(&auto_scaler);
-
-        // Monitor and test scale-up
-        auto_scaler_clone
-            .clone()
-            .monitor_and_scale(Duration::from_secs(1));
-
-        // Simulate scale-up
-        thread::sleep(Duration::from_secs(2));
-        let instances = auto_scaler_clone.current_instances.lock().unwrap();
-        assert_eq!(*instances, 3);
     }
 }
