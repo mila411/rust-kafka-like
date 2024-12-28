@@ -15,7 +15,6 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
-use std::thread;
 use std::time::Duration;
 
 pub struct MessageQueue {
@@ -66,7 +65,7 @@ impl ConsumerGroup {
 fn recover_node(storage: &Mutex<Storage>, consumer_groups: &Mutex<ConsumerGroups>) {
     let mut storage_guard = storage.lock().unwrap();
     if let Err(e) = storage_guard.reinitialize() {
-        eprintln!("Storage initialization failed: {}", e);
+        eprintln!("Storage initialization failed.: {}", e);
     }
 
     let mut groups_guard = consumer_groups.lock().unwrap();
@@ -162,14 +161,17 @@ impl Broker {
     }
 
     fn monitor_nodes(&self) {
-        let storage = Arc::clone(&self.storage);
+        let storage = self.storage.clone();
+        let consumer_groups = self.consumer_groups.clone();
         std::thread::spawn(move || {
-            if let Ok(mut storage_guard) = storage.lock() {
-                if !storage_guard.is_available() {
-                    if let Ok(()) = storage_guard.reinitialize() {
-                        storage_guard.available = true;
-                    }
+            loop {
+                let node_healthy = check_node_health(&storage);
+
+                if !node_healthy {
+                    recover_node(&storage, &consumer_groups);
                 }
+
+                std::thread::sleep(Duration::from_secs(5));
             }
         });
     }

@@ -4,6 +4,8 @@
 *old
 note.txt
 storage_path
+test_*
+test_db_path
 
 # Created by https://www.toptal.com/developers/gitignore/api/macos,rust,rust-analyzer,visualstudiocode
 # Edit at https://www.toptal.com/developers/gitignore?templates=macos,rust,rust-analyzer,visualstudiocode
