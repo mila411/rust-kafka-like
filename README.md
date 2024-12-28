@@ -12,6 +12,12 @@
     <a href="https://blog.rust-lang.org/2024/11/28/Rust-1.83.0.html">
       <img src="https://img.shields.io/badge/Rust-1.83-007ACC.svg?logo=Rust">
     </a>
+    <a href="https://codecov.io/gh/mila411/pilgrimage">
+      <img src="https://codecov.io/gh/mila411/pilgrimage/graph/badge.svg?token=HVMZX0580X"/>
+    </a>
+    <a href="https://app.deepsource.com/gh/mila411/pilgrimage/" target="_blank">
+      <img alt="DeepSource" title="DeepSource" src="https://app.deepsource.com/gh/mila411/pilgrimage.svg/?label=active+issues&show_trend=true&token=tsauTwVl8Nd7UH7xuQCtLR9H"/>
+    </a>
 </p>
 
 # pilgrimage
