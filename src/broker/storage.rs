@@ -5,6 +5,7 @@ use std::path::Path;
 pub struct Storage {
     file: BufWriter<File>,
     path: String,
+    pub available: bool,
 }
 
 impl Storage {
@@ -32,6 +33,7 @@ impl Storage {
         Ok(Storage {
             path: path.to_string(),
             file,
+            available: true,
         })
     }
 
@@ -123,6 +125,18 @@ impl Storage {
         }
         Ok(())
     }
+
+    pub fn is_available(&self) -> bool {
+        self.available
+    }
+
+    pub fn reinitialize(&mut self) -> Result<(), String> {
+        let file = File::create(&self.path).map_err(|e| e.to_string())?;
+        self.file = BufWriter::new(file);
+        writeln!(self.file, "Initialized").map_err(|e| e.to_string())?;
+        self.available = true;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -159,6 +173,7 @@ mod tests {
         let mut storage = Storage::new(invalid_path).unwrap_or_else(|_| Storage {
             path: invalid_path.to_string(),
             file: BufWriter::new(File::create("/dev/null").unwrap()),
+            available: false,
         });
         let result = storage.rotate_logs();
         assert!(result.is_err());
@@ -172,6 +187,7 @@ mod tests {
         let storage = Storage {
             path: invalid_path,
             file: BufWriter::new(File::create("/dev/null").unwrap()),
+            available: false,
         };
 
         let result = storage.cleanup_logs();

@@ -15,6 +15,8 @@ use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
+use std::thread;
+use std::time::Duration;
 
 pub struct MessageQueue {
     queue: Mutex<VecDeque<String>>,
@@ -43,6 +45,33 @@ impl MessageQueue {
                 None => queue = self.condvar.wait(queue).unwrap(),
             }
         }
+    }
+}
+
+fn check_node_health(storage: &Mutex<Storage>) -> bool {
+    let storage_guard = storage.lock().unwrap();
+    storage_guard.is_available()
+}
+
+pub type ConsumerGroups = HashMap<String, ConsumerGroup>;
+
+impl ConsumerGroup {
+    pub fn reset_assignments(&mut self) {
+        if let Ok(mut map) = self.assignments.lock() {
+            map.clear();
+        }
+    }
+}
+
+fn recover_node(storage: &Mutex<Storage>, consumer_groups: &Mutex<ConsumerGroups>) {
+    let mut storage_guard = storage.lock().unwrap();
+    if let Err(e) = storage_guard.reinitialize() {
+        eprintln!("Storage initialization failed: {}", e);
+    }
+
+    let mut groups_guard = consumer_groups.lock().unwrap();
+    for group in groups_guard.values_mut() {
+        group.reset_assignments();
     }
 }
 
@@ -92,7 +121,7 @@ impl Broker {
         let leader_election = LeaderElection::new(id, peers);
         let storage = Storage::new(storage_path).expect("Failed to initialize storage");
 
-        Broker {
+        let broker = Broker {
             id: id.to_string(),
             topics: HashMap::new(),
             num_partitions,
@@ -106,7 +135,9 @@ impl Broker {
             replicas: Arc::new(Mutex::new(HashMap::new())),
             leader: Arc::new(Mutex::new(None)),
             message_queue: Arc::new(MessageQueue::new()),
-        }
+        };
+        broker.monitor_nodes();
+        broker
     }
 
     pub fn send_message(&self, message: String) {
@@ -128,6 +159,19 @@ impl Broker {
                 }
             }
         }
+    }
+
+    fn monitor_nodes(&self) {
+        let storage = Arc::clone(&self.storage);
+        std::thread::spawn(move || {
+            if let Ok(mut storage_guard) = storage.lock() {
+                if !storage_guard.is_available() {
+                    if let Ok(()) = storage_guard.reinitialize() {
+                        storage_guard.available = true;
+                    }
+                }
+            }
+        });
     }
 
     pub fn detect_failure(&self, node_id: &str) {
@@ -802,5 +846,26 @@ mod tests {
 
         sender_handle.join().unwrap();
         receiver_handle.join().unwrap();
+    }
+
+    #[test]
+    fn test_auto_recovery() {
+        let storage = Arc::new(Mutex::new(Storage::new("test_db_path").unwrap()));
+        let mut broker = Broker::new("broker_id", 1, 1, "test_db_path");
+        broker.storage = storage.clone();
+
+        // Simulate a disability
+        {
+            let mut storage_guard = storage.lock().unwrap();
+            storage_guard.available = false;
+        }
+
+        // Perform automatic recovery
+        broker.monitor_nodes();
+
+        // Check recovery
+        thread::sleep(Duration::from_millis(100));
+        let storage_guard = storage.lock().unwrap();
+        assert!(storage_guard.is_available());
     }
 }
