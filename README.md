@@ -111,16 +111,29 @@ fn main() {
 The system includes mechanisms for fault detection and automatic recovery. Nodes are monitored using heartbeat signals, and if a fault is detected, the system will attempt to recover automatically.
 
 ```rust
-use pilgrimage::broker::Broker;
+use pilgrimage::Broker;
+use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 
 fn main() {
-    let broker = Broker::new("broker1", 3, 2, "logs");
+    let storage = Arc::new(Mutex::new(Storage::new("test_db_path").unwrap()));
+    let mut broker = Broker::new("broker_id", 1, 1, "test_db_path");
+    broker.storage = storage.clone();
 
-    // Check node health
-    if broker.detect_faults() {
-        broker.recover_node();
+    // Simulating a disability
+    {
+        let mut storage_guard = storage.lock().unwrap();
+        storage_guard.available = false;
     }
+
+    // Simulating a disability
+    broker.monitor_nodes();
+
+    // Simulating a disability
+    thread::sleep(Duration::from_millis(100));
+    let storage_guard = storage.lock().unwrap();
+    assert!(storage_guard.is_available());
 }
 ```
 
