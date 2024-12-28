@@ -30,6 +30,7 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - Partition Replication
 - Persistent messages
 - Schema Registry for managing message schemas and ensuring compatibility
+- Automatic Scaling
 
 ## Usage
 
@@ -47,6 +48,7 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - **Replication**: Replication of messages across multiple brokers for fault tolerance.
 - **Schema Registry**: Management of message schemas to ensure compatibility between producers and consumers.
 - **Benchmarking**: Comprehensive benchmarking tests to measure performance of various components.
+- **Automatic Scaling:** Automatically scale the number of instances based on load.
 
 ### Basic usage
 
@@ -136,11 +138,6 @@ fn main() {
     assert!(storage_guard.is_available());
 }
 ```
-
-### Planned features(perhaps)
-
-1. Add security features
-2. High Availability and Scalability
 
 ### License
 
