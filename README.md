@@ -9,8 +9,8 @@
 </p>
 
 <p align="center">
-    <a href="https://tip.golang.org/doc/go1.19">
-      <img src="https://img.shields.io/badge/Rust-1.51-007ACC.svg?logo=Rust">
+    <a href="https://blog.rust-lang.org/2024/11/28/Rust-1.83.0.html">
+      <img src="https://img.shields.io/badge/Rust-1.83-007ACC.svg?logo=Rust">
     </a>
 </p>
 
