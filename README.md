@@ -37,6 +37,7 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - Persistent messages
 - Schema Registry for managing message schemas and ensuring compatibility
 - Automatic Scaling
+- Broker Clustering
 
 ## Usage
 
