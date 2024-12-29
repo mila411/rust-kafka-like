@@ -1,3 +1,4 @@
+pub mod cluster;
 pub mod consumer;
 pub mod error;
 pub mod leader;
@@ -101,6 +102,44 @@ impl Broker {
         };
         broker.monitor_nodes();
         broker
+    }
+
+    pub fn is_healthy(&self) -> bool {
+        // Storage Health Check
+        if let Ok(storage) = self.storage.lock() {
+            if !storage.is_available() {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        // Node Health Check
+        if let Ok(nodes) = self.nodes.lock() {
+            for node in nodes.values() {
+                if let Ok(data) = node.data.lock() {
+                    if data.is_empty() {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+        } else {
+            return false;
+        }
+
+        // Checking the status of the message queue
+        if self.message_queue.is_empty() {
+            return false;
+        }
+
+        // Check the status of the leader election
+        if *self.leader_election.state.lock().unwrap() != BrokerState::Leader {
+            return false;
+        }
+
+        true
     }
 
     pub fn send_message(&self, message: String) {

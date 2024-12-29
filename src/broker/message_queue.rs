@@ -46,6 +46,11 @@ impl MessageQueue {
 
         message
     }
+
+    pub fn is_empty(&self) -> bool {
+        let queue = self.queue.lock().unwrap();
+        queue.is_empty()
+    }
 }
 
 #[cfg(test)]
