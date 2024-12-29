@@ -38,6 +38,9 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - Schema Registry for managing message schemas and ensuring compatibility
 - Automatic Scaling
 - Broker Clustering
+- Message processing in parallel
+- Authentication and Authorization Mechanisms
+- Data Encryption
 
 ## Usage
 
@@ -145,6 +148,14 @@ fn main() {
     assert!(storage_guard.is_available());
 }
 ```
+
+### Examples
+
+- Simple message sending and receiving
+- Sending and receiving multiple messages
+- Sending and receiving messages in multiple threads
+- Authentication processing example
+- Sending and receiving messages as an authenticated user
 
 ### License
 
