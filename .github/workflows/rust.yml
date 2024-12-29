@@ -59,14 +59,11 @@ jobs:
       - name: Run tests with coverage
         run: cargo tarpaulin --out Xml
 
-      - name: Single Example
-        run: cargo run --example simple-send-recv
-
-      - name: Mulch Example
-        run: cargo run --example mulch-send-recv
-
-      - name: Thread Example
-        run: cargo run --example thread-send-recv
+      - name: Run all examples
+        run: |
+          for example in $(ls examples); do
+            cargo run --example $(basename $example .rs);
+          done
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
