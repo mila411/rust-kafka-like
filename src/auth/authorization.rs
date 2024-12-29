@@ -40,10 +40,9 @@ impl RoleBasedAccessControl {
     pub fn has_permission(&self, username: &str, required_permission: &Permission) -> bool {
         self.user_roles.get(username).map_or(false, |roles| {
             roles.iter().any(|role| {
-                self.roles
-                    .get(role)
-                    .map(|permissions| permissions.contains(required_permission))
-                    .unwrap_or(false)
+                self.roles.get(role).map_or(false, |permissions| {
+                    permissions.contains(required_permission)
+                })
             })
         })
     }
