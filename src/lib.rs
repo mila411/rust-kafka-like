@@ -1,7 +1,6 @@
 pub mod auth;
 pub mod broker;
 pub mod message;
-pub mod pubsub;
 pub mod schema;
 pub mod subscriber;
 
