@@ -27,7 +27,6 @@ impl Authenticator for BasicAuthenticator {
         Ok(self
             .credentials
             .get(username)
-            .map(|stored_password| stored_password == password)
-            .unwrap_or(false))
+            .map_or(false, |stored_password| stored_password == password))
     }
 }
