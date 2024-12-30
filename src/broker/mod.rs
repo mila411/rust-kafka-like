@@ -902,6 +902,48 @@ mod tests {
     }
 
     #[test]
+    fn test_log_rotation_error_message() {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let storage = Storage::new(&storage_path).unwrap();
+
+        let result = storage.rotate_logs();
+        if let Err(e) = result {
+            assert_eq!(
+                e.to_string(),
+                format!("Old log file {}.old does not exist", storage_path)
+            );
+        } else {
+            panic!("Expected an error but got success");
+        }
+    }
+
+    #[test]
+    fn test_write_and_read_messages() {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let mut storage = Storage::new(&storage_path).unwrap();
+
+        storage.write_message("test_message_1").unwrap();
+        storage.write_message("test_message_2").unwrap();
+
+        let messages = storage.read_messages().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0], "test_message_1");
+        assert_eq!(messages[1], "test_message_2");
+    }
+
+    #[test]
     fn test_perform_operation_with_retry_success_on_first_try() {
         let broker = create_test_broker();
 
