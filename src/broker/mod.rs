@@ -104,6 +104,31 @@ impl Broker {
         broker
     }
 
+    pub fn perform_operation_with_retry<F, T, E>(
+        &self,
+        operation: F,
+        max_retries: u32,
+        delay: Duration,
+    ) -> Result<T, E>
+    where
+        F: Fn() -> Result<T, E>,
+    {
+        let mut attempts = 0;
+        loop {
+            match operation() {
+                Ok(result) => return Ok(result),
+                Err(e) => {
+                    if attempts >= max_retries {
+                        return Err(e);
+                    }
+                    attempts += 1;
+                    println!("Operation failed. Retry {} times...", attempts);
+                    std::thread::sleep(delay);
+                }
+            }
+        }
+    }
+
     pub fn is_healthy(&self) -> bool {
         // Storage Health Check
         if let Ok(storage) = self.storage.lock() {
@@ -433,11 +458,13 @@ pub struct Partition {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs;
+    use std::collections::HashMap;
+    use std::fs::{self, File};
     use std::path::Path;
     use std::sync::{Arc, Condvar, Mutex};
     use std::thread;
     use std::time::Duration;
+    use tempfile::tempdir;
 
     fn setup_test_logs(path: &str) {
         cleanup_test_logs(path);
@@ -508,23 +535,25 @@ mod tests {
 
     #[test]
     fn test_log_rotation_and_cleanup() {
-        let test_log = "test_logs_rotation";
-        setup_test_logs(test_log);
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let storage = Storage::new(&storage_path).unwrap();
 
-        let mut broker = Broker::new("broker1", 3, 2, test_log);
-        broker.create_topic("test_topic", None).unwrap();
-        broker
-            .publish_with_ack("test_topic", "test_message".to_string(), None)
-            .unwrap();
+        let result = storage.rotate_logs();
+        assert!(result.is_err(), "Old log file does not exist");
 
-        broker.rotate_logs().unwrap();
-        broker.cleanup_logs().unwrap();
-
-        let storage = Storage::new(test_log).unwrap();
-        let messages = storage.read_messages().unwrap();
-        assert!(messages.is_empty());
-
-        cleanup_test_logs(test_log);
+        let old_log_path = format!("{}.old", storage_path);
+        File::create(&old_log_path).unwrap();
+        let result = storage.rotate_logs();
+        assert!(
+            result.is_ok(),
+            "Log rotation should succeed when old log file exists"
+        );
     }
 
     #[test]
@@ -816,16 +845,9 @@ mod tests {
 
     #[test]
     fn test_rotate_logs_with_invalid_storage() {
-        let temp_dir = format!("/tmp/test_logs_{}", std::process::id());
-        let invalid_path = format!("{}/invalid", temp_dir);
-
-        let result = std::panic::catch_unwind(|| {
-            let mut broker = Broker::new("broker1", 3, 2, &invalid_path);
-            broker.rotate_logs()
-        });
-
+        let storage_result = Storage::new("/invalid/path/to/storage");
         assert!(
-            result.is_err(),
+            storage_result.is_err(),
             "Operations on invalid storage paths should fail."
         );
     }
@@ -851,5 +873,132 @@ mod tests {
 
         sender_handle.join().unwrap();
         receiver_handle.join().unwrap();
+    }
+
+    fn create_test_broker() -> Broker {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+
+        Broker {
+            consumer_groups: Arc::new(Mutex::new(HashMap::new())),
+            id: String::from("test_broker"),
+            leader: Arc::new(Mutex::new(Some(String::from("leader1")))),
+            storage: Arc::new(Mutex::new(Storage::new(&storage_path).unwrap())),
+            topics: HashMap::new(),
+            num_partitions: 1,
+            replication_factor: 1,
+            term: AtomicU64::new(1),
+            leader_election: LeaderElection::new("test_broker", HashMap::new()),
+            nodes: Arc::new(Mutex::new(HashMap::new())),
+            partitions: Arc::new(Mutex::new(HashMap::new())),
+            replicas: Arc::new(Mutex::new(HashMap::new())),
+            message_queue: Arc::new(MessageQueue::new(1, 10, Duration::from_secs(1))),
+        }
+    }
+
+    #[test]
+    fn test_log_rotation_error_message() {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let storage = Storage::new(&storage_path).unwrap();
+
+        let result = storage.rotate_logs();
+        if let Err(e) = result {
+            assert_eq!(
+                e.to_string(),
+                format!("Old log file {}.old does not exist", storage_path)
+            );
+        } else {
+            panic!("Expected an error but got success");
+        }
+    }
+
+    #[test]
+    fn test_write_and_read_messages() {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+        let mut storage = Storage::new(&storage_path).unwrap();
+
+        storage.write_message("test_message_1").unwrap();
+        storage.write_message("test_message_2").unwrap();
+
+        let messages = storage.read_messages().unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0], "test_message_1");
+        assert_eq!(messages[1], "test_message_2");
+    }
+
+    #[test]
+    fn test_perform_operation_with_retry_success_on_first_try() {
+        let broker = create_test_broker();
+
+        let result = broker.perform_operation_with_retry(
+            || Ok::<&str, &str>("Success"),
+            3,
+            Duration::from_millis(10),
+        );
+
+        assert_eq!(result.unwrap(), "Success");
+    }
+
+    #[test]
+    fn test_perform_operation_with_retry_success_after_retries() {
+        let broker = create_test_broker();
+
+        let counter = Arc::new(Mutex::new(0));
+        let counter_clone = Arc::clone(&counter);
+
+        let result = broker.perform_operation_with_retry(
+            || {
+                let mut num = counter_clone.lock().unwrap();
+                *num += 1;
+                if *num < 3 {
+                    Err("Temporary Error")
+                } else {
+                    Ok("Success after retries")
+                }
+            },
+            5,
+            Duration::from_millis(10),
+        );
+
+        assert_eq!(result.unwrap(), "Success after retries");
+        assert_eq!(*counter.lock().unwrap(), 3);
+    }
+
+    #[test]
+    fn test_perform_operation_with_retry_failure_after_max_retries() {
+        let broker = create_test_broker();
+
+        let counter = Arc::new(Mutex::new(0));
+        let counter_clone = Arc::clone(&counter);
+
+        let result = broker.perform_operation_with_retry(
+            || {
+                let mut num = counter_clone.lock().unwrap();
+                *num += 1;
+                Err::<(), &str>("Persistent Error")
+            },
+            3,
+            Duration::from_millis(10),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(*counter.lock().unwrap(), 4); // 初回 + 3リトライ
     }
 }

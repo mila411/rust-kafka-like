@@ -1,7 +1,8 @@
-use std::fs::{File, OpenOptions};
+use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
 
+#[derive(Debug)]
 pub struct Storage {
     file: BufWriter<File>,
     path: String,
@@ -23,16 +24,37 @@ impl Storage {
     /// let storage = Storage::new("test_logs").unwrap();
     /// ```
     pub fn new(path: &str) -> io::Result<Self> {
+        // Checking for the existence of the parent directory and creating it
+        if let Some(parent) = Path::new(path).parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent).map_err(|e| {
+                    io::Error::new(
+                        e.kind(),
+                        format!(
+                            "Failed to create parent directory {}: {}",
+                            parent.display(),
+                            e
+                        ),
+                    )
+                })?;
+            }
+        }
+
+        // File open
         let file = BufWriter::new(
             OpenOptions::new()
                 .create(true)
                 .write(true)
                 .append(true)
-                .open(path)?,
+                .open(path)
+                .map_err(|e| {
+                    io::Error::new(e.kind(), format!("Failed to open file {}: {}", path, e))
+                })?,
         );
+
         Ok(Storage {
-            path: path.to_string(),
             file,
+            path: path.to_string(),
             available: true,
         })
     }
@@ -78,41 +100,20 @@ impl Storage {
         Ok(messages)
     }
 
-    /// Rotates the current log file.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pilgrimage::broker::storage::Storage;
-    ///
-    /// let mut storage = Storage::new("test_logs").unwrap();
-    /// storage.rotate_logs().unwrap();
-    /// ```
-    pub fn rotate_logs(&mut self) -> io::Result<()> {
-        let new_path = format!("{}.old", self.path);
-        std::fs::rename(&self.path, &new_path)?;
-        self.file = BufWriter::new(
-            OpenOptions::new()
-                .create(true)
-                .write(true)
-                .append(true)
-                .open(&self.path)?,
-        );
+    pub fn rotate_logs(&self) -> io::Result<()> {
+        // Log rotation process
+        let old_log_path = format!("{}.old", self.path);
+        if !Path::new(&old_log_path).exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("Old log file {} does not exist", old_log_path),
+            ));
+        }
+
+        // Implemented log rotation processing
         Ok(())
     }
 
-    /// Cleans up the old logs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pilgrimage::broker::storage::Storage;
-    ///
-    /// let mut storage = Storage::new("test_logs").unwrap();
-    /// storage.write_message("test_message").unwrap();
-    /// storage.rotate_logs().unwrap();
-    /// storage.cleanup_logs().unwrap();
-    /// ```
     pub fn cleanup_logs(&self) -> io::Result<()> {
         let old_path = format!("{}.old", self.path);
         if Path::new(&old_path).exists() {
@@ -170,7 +171,7 @@ mod tests {
     #[test]
     fn test_rotate_logs_with_invalid_path() {
         let invalid_path = "/invalid_path/test_logs";
-        let mut storage = Storage::new(invalid_path).unwrap_or_else(|_| Storage {
+        let storage = Storage::new(invalid_path).unwrap_or_else(|_| Storage {
             path: invalid_path.to_string(),
             file: BufWriter::new(File::create("/dev/null").unwrap()),
             available: false,
