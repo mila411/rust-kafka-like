@@ -175,3 +175,12 @@ cargo run --example thread-send-recv
 ### Bench
 
 `cargo bench`
+
+## Version increment on release
+
+- The commit message is parsed and the version of either major, minor or patch is incremented.
+- The version of Cargo.toml is updated.
+- The updated Cargo.toml is committed and a new tag is created.
+- The changes and tag are pushed to the remote repository.
+
+The version is automatically incremented based on the commit message. Here, we treat `feat` as minor, `fix` as patch, and `BREAKING CHANGE` as major.
