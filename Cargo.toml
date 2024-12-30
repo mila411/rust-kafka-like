@@ -1,6 +1,6 @@
 [package]
 name = "pilgrimage"
-version = "0.7.0"
+version = "0.8.0"
 edition = "2024"
 authors = ["Kenny Miller Song"]
 description = "A Kafka-like message broker in Rust"
@@ -22,6 +22,7 @@ simplelog = "0.9"
 aes-gcm = "0.10.3"
 rand = "0.8.5"
 jsonwebtoken = "8.1.1"
+tempfile = "3.2"
 
 [dev-dependencies]
 criterion = "0.3"
