@@ -27,7 +27,16 @@ impl Storage {
         // Checking for the existence of the parent directory and creating it
         if let Some(parent) = Path::new(path).parent() {
             if !parent.exists() {
-                fs::create_dir_all(parent)?;
+                fs::create_dir_all(parent).map_err(|e| {
+                    io::Error::new(
+                        e.kind(),
+                        format!(
+                            "Failed to create parent directory {}: {}",
+                            parent.display(),
+                            e
+                        ),
+                    )
+                })?;
             }
         }
 
@@ -37,7 +46,10 @@ impl Storage {
                 .create(true)
                 .write(true)
                 .append(true)
-                .open(path)?,
+                .open(path)
+                .map_err(|e| {
+                    io::Error::new(e.kind(), format!("Failed to open file {}: {}", path, e))
+                })?,
         );
 
         Ok(Storage {
@@ -94,7 +106,7 @@ impl Storage {
         if !Path::new(&old_log_path).exists() {
             return Err(io::Error::new(
                 io::ErrorKind::NotFound,
-                "Old log file does not exist",
+                format!("Old log file {} does not exist", old_log_path),
             ));
         }
 
