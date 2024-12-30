@@ -1,6 +1,7 @@
 /target
 /logs
 *log*
+!log_compression.rs
 *old
 note.txt
 storage_path

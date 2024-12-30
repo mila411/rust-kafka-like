@@ -59,6 +59,7 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - **Schema Registry**: Management of message schemas to ensure compatibility between producers and consumers.
 - **Benchmarking**: Comprehensive benchmarking tests to measure performance of various components.
 - **Automatic Scaling:** Automatically scale the number of instances based on load.
+- **Log Compressions:** Compress and optimize logs.
 
 ### Basic usage
 
