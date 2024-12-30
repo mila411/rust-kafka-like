@@ -20,7 +20,7 @@ use crate::broker::topic::Topic;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -470,6 +470,7 @@ pub struct Partition {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use std::fs::OpenOptions;
     use std::fs::{self, File};
     use std::path::Path;
     use std::sync::{Arc, Condvar, Mutex};
