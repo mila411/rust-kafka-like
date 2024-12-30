@@ -459,7 +459,7 @@ pub struct Partition {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use std::fs;
+    use std::fs::{self, File};
     use std::path::Path;
     use std::sync::{Arc, Condvar, Mutex};
     use std::thread;
@@ -548,7 +548,7 @@ mod tests {
         assert!(result.is_err(), "Old log file does not exist");
 
         let old_log_path = format!("{}.old", storage_path);
-        fs::File::create(&old_log_path).unwrap();
+        File::create(&old_log_path).unwrap();
         let result = storage.rotate_logs();
         assert!(
             result.is_ok(),
@@ -957,6 +957,6 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert_eq!(*counter.lock().unwrap(), 4);
+        assert_eq!(*counter.lock().unwrap(), 4); // 初回 + 3リトライ
     }
 }
