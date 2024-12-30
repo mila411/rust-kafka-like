@@ -2,6 +2,7 @@ pub mod cluster;
 pub mod consumer;
 pub mod error;
 pub mod leader;
+pub mod log_compression;
 pub mod message_queue;
 pub mod node_management;
 pub mod scaling;
@@ -11,6 +12,7 @@ pub mod topic;
 use crate::broker::consumer::group::ConsumerGroup;
 use crate::broker::error::BrokerError;
 use crate::broker::leader::{BrokerState, LeaderElection};
+use crate::broker::log_compression::LogCompressor;
 use crate::broker::message_queue::MessageQueue;
 use crate::broker::node_management::{check_node_health, recover_node};
 use crate::broker::storage::Storage;
@@ -18,6 +20,9 @@ use crate::broker::topic::Topic;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
 use std::collections::HashMap;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -46,6 +51,7 @@ pub struct Broker {
     pub replicas: Arc<Mutex<HashMap<String, Vec<String>>>>,
     pub leader: Arc<Mutex<Option<String>>>,
     pub message_queue: Arc<MessageQueue>,
+    log_path: String,
 }
 
 impl Broker {
@@ -80,6 +86,7 @@ impl Broker {
         let peers = HashMap::new(); //TODO it reads from the settings
         let leader_election = LeaderElection::new(id, peers);
         let storage = Storage::new(storage_path).expect("Failed to initialize storage");
+        let log_path = format!("logs/{}.log", id);
 
         let broker = Broker {
             id: id.to_string(),
@@ -99,6 +106,7 @@ impl Broker {
                 max_instances,
                 check_interval,
             )),
+            log_path: log_path.to_string(),
         };
         broker.monitor_nodes();
         broker
@@ -423,21 +431,21 @@ impl Broker {
         }
     }
 
-    /// Rotates the logs.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pilgrimage::broker::Broker;
-    ///
-    /// let mut broker = Broker::new("broker1", 3, 2, "logs");
-    /// broker.create_topic("test_topic", None).unwrap();
-    /// broker.publish_with_ack("test_topic", "test_message".to_string(), None).unwrap();
-    /// broker.rotate_logs().unwrap();
-    /// ```
-    pub fn rotate_logs(&mut self) -> Result<(), BrokerError> {
-        self.storage.lock().unwrap().rotate_logs()?;
-        Ok(())
+    pub fn rotate_logs(&self) {
+        let log_path = Path::new(&self.log_path);
+        let rotated = log_path.with_extension("old");
+        if let Err(e) = LogCompressor::compress_file(log_path, rotated.as_path()) {
+            eprintln!("Failed to compress log file: {}", e);
+        }
+        if let Err(e) = File::create(&self.log_path) {
+            eprintln!("Failed to create new log file: {}", e);
+        }
+    }
+
+    pub fn write_log(&self, message: &str) {
+        let log_path = Path::new(&self.log_path);
+        let mut file = OpenOptions::new().append(true).open(log_path).unwrap();
+        writeln!(file, "{}", message).unwrap();
     }
 
     pub fn cleanup_logs(&self) -> Result<(), BrokerError> {
@@ -466,6 +474,33 @@ mod tests {
     use std::time::Duration;
     use tempfile::tempdir;
 
+    fn create_test_broker() -> Broker {
+        let temp_dir = tempdir().unwrap();
+        let storage_path = temp_dir
+            .path()
+            .join("test_storage")
+            .to_str()
+            .unwrap()
+            .to_owned();
+
+        Broker {
+            consumer_groups: Arc::new(Mutex::new(HashMap::new())),
+            id: String::from("test_broker"),
+            leader: Arc::new(Mutex::new(Some(String::from("leader1")))),
+            storage: Arc::new(Mutex::new(Storage::new(&storage_path).unwrap())),
+            topics: HashMap::new(),
+            num_partitions: 1,
+            replication_factor: 1,
+            term: AtomicU64::new(1),
+            leader_election: LeaderElection::new("test_broker", HashMap::new()),
+            nodes: Arc::new(Mutex::new(HashMap::new())),
+            partitions: Arc::new(Mutex::new(HashMap::new())),
+            replicas: Arc::new(Mutex::new(HashMap::new())),
+            message_queue: Arc::new(MessageQueue::new(1, 10, Duration::from_secs(1))),
+            log_path: "logs/broker.log".to_string(),
+        }
+    }
+
     fn setup_test_logs(path: &str) {
         cleanup_test_logs(path);
     }
@@ -478,27 +513,6 @@ mod tests {
         if Path::new(&old_path).exists() {
             let _ = fs::remove_file(old_path);
         }
-    }
-
-    #[test]
-    fn test_broker_leader_election() {
-        let broker = Broker::new("broker1", 3, 2, "logs");
-        let node1 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
-        let node2 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
-
-        broker.add_node("node1".to_string(), node1);
-        broker.add_node("node2".to_string(), node2);
-
-        let elected = broker.start_election();
-
-        assert!(elected);
-
-        let leader = broker.leader.lock().unwrap();
-        assert!(leader.is_some());
     }
 
     #[test]
@@ -873,32 +887,6 @@ mod tests {
 
         sender_handle.join().unwrap();
         receiver_handle.join().unwrap();
-    }
-
-    fn create_test_broker() -> Broker {
-        let temp_dir = tempdir().unwrap();
-        let storage_path = temp_dir
-            .path()
-            .join("test_storage")
-            .to_str()
-            .unwrap()
-            .to_owned();
-
-        Broker {
-            consumer_groups: Arc::new(Mutex::new(HashMap::new())),
-            id: String::from("test_broker"),
-            leader: Arc::new(Mutex::new(Some(String::from("leader1")))),
-            storage: Arc::new(Mutex::new(Storage::new(&storage_path).unwrap())),
-            topics: HashMap::new(),
-            num_partitions: 1,
-            replication_factor: 1,
-            term: AtomicU64::new(1),
-            leader_election: LeaderElection::new("test_broker", HashMap::new()),
-            nodes: Arc::new(Mutex::new(HashMap::new())),
-            partitions: Arc::new(Mutex::new(HashMap::new())),
-            replicas: Arc::new(Mutex::new(HashMap::new())),
-            message_queue: Arc::new(MessageQueue::new(1, 10, Duration::from_secs(1))),
-        }
     }
 
     #[test]

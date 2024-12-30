@@ -23,9 +23,11 @@ aes-gcm = "0.10.3"
 rand = "0.8.5"
 jsonwebtoken = "8.1.1"
 tempfile = "3.2"
+flate2 = "1.0.35"
 
 [dev-dependencies]
 criterion = "0.3"
+tempfile = "3.2"
 
 [[bench]]
 name = "benchmark"
