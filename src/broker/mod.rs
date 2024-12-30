@@ -501,6 +501,25 @@ mod tests {
         }
     }
 
+    fn create_test_broker_with_path(log_path: &str) -> Broker {
+        Broker {
+            id: "test_broker".to_string(),
+            topics: HashMap::new(),
+            num_partitions: 3,
+            replication_factor: 2,
+            term: AtomicU64::new(0),
+            leader_election: LeaderElection::new("test_broker", HashMap::new()),
+            storage: Arc::new(Mutex::new(Storage::new("test_storage").unwrap())),
+            consumer_groups: Arc::new(Mutex::new(HashMap::new())),
+            nodes: Arc::new(Mutex::new(HashMap::new())),
+            partitions: Arc::new(Mutex::new(HashMap::new())),
+            replicas: Arc::new(Mutex::new(HashMap::new())),
+            leader: Arc::new(Mutex::new(None)),
+            message_queue: Arc::new(MessageQueue::new(1, 10, Duration::from_secs(30))),
+            log_path: log_path.to_string(),
+        }
+    }
+
     fn setup_test_logs(path: &str) {
         cleanup_test_logs(path);
     }
@@ -855,6 +874,28 @@ mod tests {
             nodes.is_empty(),
             "If the node does not exist, replication should fail."
         );
+    }
+
+    #[test]
+    fn test_rotate_logs() {
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        {
+            let mut file = File::create(&log_path).unwrap();
+            writeln!(file, "This is a test log entry.").unwrap();
+        }
+
+        let broker = create_test_broker_with_path(log_path.to_str().unwrap());
+
+        broker.rotate_logs();
+        let rotated_log_path = log_path.with_extension("old");
+
+        assert!(rotated_log_path.exists());
+        assert!(log_path.exists());
+
+        let new_log_content = fs::read_to_string(&log_path).unwrap();
+        assert!(new_log_content.is_empty());
     }
 
     #[test]
