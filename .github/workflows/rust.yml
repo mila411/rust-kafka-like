@@ -21,6 +21,7 @@ env:
 
 jobs:
   build:
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -40,6 +41,7 @@ jobs:
         run: cargo build
 
   test:
+    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     needs: build
 
@@ -64,6 +66,9 @@ jobs:
           for example in $(ls examples); do
             cargo run --example $(basename $example .rs);
           done
+
+      - name: Run bench
+        run: cargo bench
 
       - name: Upload to Codecov
         uses: codecov/codecov-action@v5
