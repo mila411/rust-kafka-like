@@ -58,7 +58,7 @@ mod tests {
         assert!(decompressed_path.exists());
 
         // Checking the contents
-        let mut content = String::new();
+        let mut content = String::default();
         let mut file = File::open(&decompressed_path).unwrap();
         file.read_to_string(&mut content).unwrap();
         assert_eq!(content.trim(), "Hello, compression!");
@@ -107,7 +107,7 @@ mod tests {
         assert!(decompressed.exists());
 
         // Check the contents
-        let mut buf = String::new();
+        let mut buf = String::default();
         let mut file = File::open(&decompressed).unwrap();
         file.read_to_string(&mut buf).unwrap();
         assert_eq!(buf, "");
