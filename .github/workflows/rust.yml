@@ -21,7 +21,6 @@ env:
 
 jobs:
   build:
-    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -41,7 +40,6 @@ jobs:
         run: cargo build
 
   test:
-    if: ${{ github.actor != 'github-actions[bot]' }}
     runs-on: ubuntu-latest
     needs: build
 
@@ -98,72 +96,7 @@ jobs:
           target: x86_64-unknown-linux-gnu
           override: true
 
-      - name: Bump version and create Git tag
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Get the latest commit message
-          COMMITS=$(git log --format=%B -n 1)
-
-          # Initial value for version bump
-          BUMP="patch"
-
-          # Determine the version based on the commit message
-          if echo "$COMMITS" | grep -q "BREAKING CHANGE"; then
-            BUMP="major"
-          elif echo "$COMMITS" | grep -q "^feat"; then
-            BUMP="minor"
-          elif echo "$COMMITS" | grep -q "^fix"; then
-            BUMP="patch"
-          fi
-
-          echo "Determined version bump: $BUMP"
-
-          # Get the current version
-          CURRENT_VERSION=$(grep '^version' Cargo.toml | awk -F\" '{print $2}')
-          echo "Current version: $CURRENT_VERSION"
-
-          # Calculate the new version
-          IFS='.' read -r MAJOR MINOR PATCH <<< "$CURRENT_VERSION"
-          if [ "$BUMP" = "major" ]; then
-            MAJOR=$((MAJOR + 1))
-            MINOR=0
-            PATCH=0
-          elif [ "$BUMP" = "minor" ]; then
-            MINOR=$((MINOR + 1))
-            PATCH=0
-          elif [ "$BUMP" = "patch" ]; then
-            PATCH=$((PATCH + 1))
-          fi
-          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
-          echo "New version: $NEW_VERSION"
-
-          # Update the version of Cargo.toml
-          sed -i "s/^version = \"$CURRENT_VERSION\"/version = \"$NEW_VERSION\"/" Cargo.toml
-
-          # Git settings
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-          # Commit changes
-          git add Cargo.toml
-          git commit -m "Bump version to $NEW_VERSION" || echo "No changes to commit"
-
-          # Create a tag
-          git tag "v$NEW_VERSION"
-
-          # Output a new version to GitHub Actions
-          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
-
-          # Push changes and tags
-          git push origin main --tags
-
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: cargo publish
-
-      - name: Create a release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "${NEW_VERSION}" --generate-notes
