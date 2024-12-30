@@ -442,10 +442,13 @@ impl Broker {
         }
     }
 
-    pub fn write_log(&self, message: &str) {
-        let log_path = Path::new(&self.log_path);
-        let mut file = OpenOptions::new().append(true).open(log_path).unwrap();
-        writeln!(file, "{}", message).unwrap();
+    pub fn write_log(&self, message: &str) -> std::io::Result<()> {
+        let mut file = std::fs::OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open(&self.log_path)?;
+        writeln!(file, "{}", message)?;
+        Ok(())
     }
 
     pub fn cleanup_logs(&self) -> Result<(), BrokerError> {
@@ -899,6 +902,103 @@ mod tests {
     }
 
     #[test]
+    fn test_rotate_logs_invalid_path() {
+        let broker = create_test_broker_with_path("/invalid/path/test.log");
+        broker.rotate_logs();
+    }
+
+    #[test]
+    fn test_rotate_logs_no_permissions() {
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        {
+            let mut file = File::create(&log_path).unwrap();
+            writeln!(file, "test data").unwrap();
+        }
+
+        fs::set_permissions(
+            &log_path,
+            <fs::Permissions as std::os::unix::fs::PermissionsExt>::from_mode(0o444),
+        )
+        .unwrap();
+
+        let broker = create_test_broker_with_path(log_path.to_str().unwrap());
+        broker.rotate_logs();
+    }
+
+    #[test]
+    fn test_rotate_logs_file_not_found() {
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("nonexistent.log");
+
+        let broker = create_test_broker_with_path(log_path.to_str().unwrap());
+        broker.rotate_logs();
+    }
+
+    #[test]
+    fn test_rotate_logs_file_in_use() {
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("locked.log");
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .open(&log_path)
+            .unwrap();
+
+        let broker = create_test_broker_with_path(log_path.to_str().unwrap());
+        broker.rotate_logs();
+
+        drop(file);
+    }
+
+    #[test]
+    fn test_write_log() {
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        fs::create_dir_all(log_path.parent().unwrap()).unwrap();
+
+        let broker = create_test_broker_with_path(log_path.to_str().unwrap());
+        broker.write_log("Test message 1").unwrap();
+        broker.write_log("Test message 2").unwrap();
+
+        let content = fs::read_to_string(&log_path).unwrap();
+        assert!(content.contains("Test message 1"));
+        assert!(content.contains("Test message 2"));
+    }
+
+    #[test]
+    fn test_write_log_invalid_path() {
+        let dir = tempdir().unwrap();
+        let invalid_path = dir.path().join("nonexistent").join("test.log");
+        let broker = create_test_broker_with_path(invalid_path.to_str().unwrap());
+
+        // Test error handling - check that it returns an error
+        let result = broker.write_log("This should not panic");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_write_log_no_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = tempdir().unwrap();
+        let log_path = dir.path().join("test.log");
+
+        // Create a file and set the permissions to read-only.
+        {
+            let mut file = File::create(&log_path).unwrap();
+            writeln!(file, "Initial content").unwrap();
+        }
+        fs::set_permissions(&log_path, fs::Permissions::from_mode(0o444)).unwrap(); // 読み取り専用
+
+        let broker = create_test_broker_with_path(log_path.to_str().unwrap());
+        let result = broker.write_log("This should handle permission error");
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_rotate_logs_with_invalid_storage() {
         let storage_result = Storage::new("/invalid/path/to/storage");
         assert!(
@@ -1028,6 +1128,6 @@ mod tests {
         );
 
         assert!(result.is_err());
-        assert_eq!(*counter.lock().unwrap(), 4); // 初回 + 3リトライ
+        assert_eq!(*counter.lock().unwrap(), 4);
     }
 }
