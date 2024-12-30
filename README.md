@@ -170,9 +170,13 @@ To execute a basic example, use the following command:
 cargo run --example simple-send-recv
 cargo run --example mulch-send-recv
 cargo run --example thread-send-recv
+cargo run --example auth-example
+cargo run --example auth-send-recv
 ```
 
 ### Bench
+
+If the allocated memory is small, it may fail.
 
 `cargo bench`
 
