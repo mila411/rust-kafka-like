@@ -3,6 +3,7 @@
 *log*
 !log_compression.rs
 *old
+tmp
 note.txt
 storage_path
 test_*

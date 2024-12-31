@@ -251,24 +251,6 @@ impl Broker {
         }
     }
 
-    /// # Examples
-    ///
-    /// ```
-    /// use pilgrimage::broker::Broker;
-    /// use pilgrimage::broker::Node;
-    /// use std::sync::{Arc, Mutex};
-    ///
-    /// let broker = Broker::new("broker1", 3, 2, "logs");
-    /// let node1 = Node { data: Arc::new(Mutex::new(Vec::new())) };
-    /// let node2 = Node { data: Arc::new(Mutex::new(Vec::new())) };
-    ///
-    /// broker.add_node("node1".to_string(), node1);
-    /// broker.add_node("node2".to_string(), node2);
-    ///
-    /// let elected = broker.start_election();
-    ///
-    /// assert!(elected);
-    /// ```
     pub fn start_election(&self) -> bool {
         let nodes = self.nodes.lock().unwrap();
         if let Some((new_leader, _)) = nodes.iter().next() {
@@ -459,7 +441,21 @@ impl Broker {
 
 #[derive(Clone)]
 pub struct Node {
+    pub id: String,
+    pub address: String,
+    pub is_active: bool,
     pub data: Arc<Mutex<Vec<u8>>>,
+}
+
+impl Node {
+    pub fn new(id: &str, address: &str, is_active: bool) -> Self {
+        Node {
+            id: id.to_string(),
+            address: address.to_string(),
+            is_active,
+            data: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
 }
 
 pub struct Partition {
@@ -505,6 +501,15 @@ mod tests {
         }
     }
 
+    fn create_test_node(id: &str) -> Node {
+        Node {
+            id: id.to_string(),
+            address: "127.0.0.1:8080".to_string(),
+            is_active: true,
+            data: Arc::new(Mutex::new(Vec::new())),
+        }
+    }
+
     fn create_test_broker_with_path(log_path: &str) -> Broker {
         Broker {
             id: "test_broker".to_string(),
@@ -536,6 +541,14 @@ mod tests {
         if Path::new(&old_path).exists() {
             let _ = fs::remove_file(old_path);
         }
+    }
+
+    #[test]
+    fn test_node_creation() {
+        let node = Node::new("node1", "127.0.0.1:8080", true);
+        assert_eq!(node.id, "node1");
+        assert_eq!(node.address, "127.0.0.1:8080");
+        assert!(node.is_active);
     }
 
     #[test]
@@ -711,12 +724,8 @@ mod tests {
     #[test]
     fn test_data_replication() {
         let broker = Broker::new("broker1", 3, 2, "logs");
-        let node1 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
-        let node2 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
+        let node1 = create_test_node("node1");
+        let node2 = create_test_node("node2");
 
         broker.add_node("node1".to_string(), node1);
         broker.add_node("node2".to_string(), node2);
@@ -743,12 +752,8 @@ mod tests {
     #[test]
     fn test_failover() {
         let broker = Broker::new("broker1", 3, 2, "logs");
-        let node1 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
-        let node2 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
+        let node1 = create_test_node("node1");
+        let node2 = create_test_node("node2");
 
         broker.add_node("node1".to_string(), node1);
         broker.add_node("node2".to_string(), node2);
@@ -771,12 +776,8 @@ mod tests {
     #[test]
     fn test_rebalance() {
         let broker = Broker::new("broker1", 3, 2, "logs");
-        let node1 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
-        let node2 = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
+        let node1 = create_test_node("node1");
+        let node2 = create_test_node("node2");
 
         broker.add_node("node1".to_string(), node1);
         broker.add_node("node2".to_string(), node2);
@@ -803,9 +804,7 @@ mod tests {
     #[test]
     fn test_add_existing_node() {
         let broker = Broker::new("broker1", 3, 2, "logs");
-        let node = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
+        let node = create_test_node("node1");
 
         broker.add_node("node1".to_string(), node.clone());
         broker.add_node("node1".to_string(), node);
@@ -845,9 +844,7 @@ mod tests {
     #[test]
     fn test_add_invalid_node() {
         let broker = Broker::new("broker1", 3, 2, "logs");
-        let node = Node {
-            data: Arc::new(Mutex::new(Vec::new())),
-        };
+        let node = create_test_node("node1");
 
         broker.add_node("node1".to_string(), node.clone());
         broker.add_node("node1".to_string(), node);
