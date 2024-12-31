@@ -138,12 +138,15 @@ jobs:
           # Update the version of Cargo.toml
           sed -i "s/^version = \".*\"/version = \"$NEW_VERSION\"/" Cargo.toml
 
+          # Update Cargo.lock
+          cargo check
+
           # Git settings
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Commit changes
-          git add .
+          git add Cargo.toml Cargo.lock
           git commit -m "Bump version to $NEW_VERSION" || echo "No changes to commit"
 
           # Create a tag
@@ -169,4 +172,5 @@ jobs:
       - name: Publish to crates.io
         env:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
-        run: cargo publish --allow-dirty
+        run: cargo publish
+        # run: cargo publish --allow-dirty
