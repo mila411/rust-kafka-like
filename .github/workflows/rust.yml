@@ -143,7 +143,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
           # Commit changes
-          git add Cargo.toml
+          git add Cargo.toml Cargo.lock
           git commit -m "Bump version to $NEW_VERSION" || echo "No changes to commit"
 
           # Create a tag
@@ -158,13 +158,13 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Create GitHub Release
-        uses: actions/create-release@v1
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: "v${{ steps.bump_version.outputs.new_version }}"
-          release_name: "v${{ steps.bump_version.outputs.new_version }}"
-          body: "Release version v${{ steps.bump_version.outputs.new_version }}"
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v${{ steps.bump_version.outputs.new_version }}" \
+            --title "v${{ steps.bump_version.outputs.new_version }}" \
+            --notes "Release version v${{ steps.bump_version.outputs.new_version }}" \
+            --generate-notes
 
       - name: Publish to crates.io
         env:
