@@ -8,9 +8,15 @@ fn broker_benchmark(c: &mut Criterion) {
 
     // ノードの追加
     let node1 = Node {
+        address: "127.0.0.1".to_string(),
+        id: "node1".to_string(),
+        is_active: true,
         data: Arc::new(Mutex::new(Vec::new())),
     };
     let node2 = Node {
+        address: "127.0.0.1".to_string(),
+        id: "node2".to_string(),
+        is_active: true,
         data: Arc::new(Mutex::new(Vec::new())),
     };
     broker.add_node("node1".to_string(), node1);

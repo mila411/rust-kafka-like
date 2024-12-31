@@ -106,6 +106,9 @@ mod tests {
             // Add node data
             let mut nodes = broker2.nodes.lock().unwrap();
             let node = Node {
+                address: "127.0.0.1".to_string(),
+                id: "node_id".to_string(),
+                is_active: true,
                 data: Arc::new(Mutex::new(vec![1, 2, 3])),
             };
             nodes.insert("test_node".to_string(), node);
