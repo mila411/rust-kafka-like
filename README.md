@@ -180,6 +180,116 @@ If the allocated memory is small, it may fail.
 
 `cargo bench`
 
+### CLI Features
+
+ilgrimage offers a comprehensive Command-Line Interface (CLI) to manage and interact with your message brokers efficiently. Below are the available commands along with their descriptions and usage examples.
+
+#### start
+
+**Description:**
+Starts the broker with the specified configurations.
+
+**Usage:**
+
+```bash
+pilgrimage start --id <BROKER_ID> --partitions <NUMBER_OF_PARTITIONS> --replication <REPLICATION_FACTOR> --storage <STORAGE_PATH> [--test-mode]
+```
+
+**Options:**
+
+- `--id`, `-i` (required): Sets the broker ID.
+- `--partitions`, `-p` (required): Sets the number of partitions.
+- `--replication`, `-r` (required): Sets the replication factor.
+- `--storage`, `-s` (required): Sets the storage path.
+- `--test-mode`: Runs the broker in test mode, which breaks out of the main loop quickly for testing purposes.
+
+**Example:**
+
+`pilgrimage start --id broker1 --partitions 3 --replication 2 --storage /data/broker1 --test-mode`
+
+##### stop
+
+**Description:**
+Stops the specified broker.
+
+**Usage**
+
+`pilgrimage stop --id <BROKER_ID>`
+
+**Options:**
+
+- `--id`, `-i` (required): Sets the broker ID.
+
+**Example**
+
+`pilgrimage stop --id broker1`
+
+#### send
+
+**Description:**
+
+Sends a message to the specified broker.
+
+**Usage**
+
+`pilgrimage send <BROKER_ID> <MESSAGE>`
+
+**Arguments:**
+
+- `<BROKER_ID>` (required): The ID of the broker to send the message to.
+- `<MESSAGE>` (required): The message content to send.
+
+**Example**
+
+`pilgrimage send broker1 "Hello, World!"`
+
+#### consume
+
+**Description:**
+
+Consumes messages from the specified broker.
+
+**Usage**
+
+`pilgrimage consume <BROKER_ID>`
+
+**Arguments:**
+
+- `<BROKER_ID>` (required): The ID of the broker to consume messages from.
+
+**Example:**
+
+`pilgrimage consume broker1`
+
+#### status
+
+**Description:**
+
+Checks the status of the specified broker.
+
+**Usage:**
+
+`pilgrimage status --id <BROKER_ID>`
+
+**Options:**
+- `--id`, `-i` (required): Sets the broker ID.
+
+**Example:**
+
+`pilgrimage status --id broker1`
+
+#### Additional Information
+
+- **Help Command:**
+    To view all available commands and options, use the `help` command:
+
+`pilgrimage help`
+
+- **Version Information:**
+    To check the current version of Pilgrimage, use:
+
+`pilgrimage --version`
+
 ## Version increment on release
 
 - The commit message is parsed and the version of either major, minor or patch is incremented.
