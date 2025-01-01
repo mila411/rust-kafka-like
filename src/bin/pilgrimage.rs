@@ -136,3 +136,98 @@ fn main() {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use clap::{App, Arg, SubCommand};
+
+    #[test]
+    fn test_start_command() {
+        let matches = App::new("test")
+            .subcommand(
+                SubCommand::with_name("start")
+                    .arg(Arg::with_name("id").required(true))
+                    .arg(Arg::with_name("partitions").required(true))
+                    .arg(Arg::with_name("replication").required(true))
+                    .arg(Arg::with_name("storage").required(true)),
+            )
+            .get_matches_from(vec![
+                "test",
+                "start",
+                "broker1",
+                "3",
+                "2",
+                "/tmp/storage_broker1.db", // 修正: ディレクトリからファイルパスに変更
+            ]);
+
+        match matches.subcommand() {
+            Some(("start", start_matches)) => {
+                let id = start_matches.value_of("id").unwrap();
+                let partitions: usize = start_matches
+                    .value_of("partitions")
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                let replication: usize = start_matches
+                    .value_of("replication")
+                    .unwrap()
+                    .parse()
+                    .unwrap();
+                let storage = start_matches.value_of("storage").unwrap();
+
+                println!(
+                    "Starting broker {} with {} partitions, replication factor of {}, and storage path {}...",
+                    id, partitions, replication, storage
+                );
+
+                let broker = Broker::new(id, partitions, replication, storage);
+                let broker = Arc::new(Mutex::new(broker));
+
+                let broker_clone = Arc::clone(&broker);
+                thread::spawn(move || {
+                    let _broker = broker_clone.lock().unwrap();
+                    println!("Broker is running...");
+                });
+
+                thread::sleep(Duration::from_secs(1)); // Simulate some work
+                println!("Broker {} started.", id);
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn test_stop_command() {
+        let matches = App::new("test")
+            .subcommand(SubCommand::with_name("stop").arg(Arg::with_name("id").required(true)))
+            .get_matches_from(vec!["test", "stop", "broker1"]);
+
+        match matches.subcommand() {
+            Some(("stop", stop_matches)) => {
+                let id = stop_matches.value_of("id").unwrap();
+                println!("Stopping broker {}...", id);
+            }
+            _ => {}
+        }
+    }
+
+    #[test]
+    fn test_send_command() {
+        let broker = Broker::new("broker1", 3, 2, "/tmp/storage_broker1.db");
+        broker.send_message("Hello, World!".to_string());
+    }
+
+    #[test]
+    fn test_consume_command() {
+        let broker = Broker::new("broker1", 3, 2, "/tmp/storage_broker1.db");
+        broker.send_message("Test Message".to_string());
+    }
+
+    #[test]
+    fn test_status_command() {
+        let broker = Broker::new("broker1", 3, 2, "/tmp/storage_broker1.db");
+        broker.send_message("Status Message".to_string());
+        assert_eq!(broker.id, "broker1");
+    }
+}
