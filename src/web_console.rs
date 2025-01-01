@@ -1,10 +1,17 @@
 use actix_web::{App, HttpResponse, HttpServer, Responder, web};
 use pilgrimage::{Broker, broker::Node};
+use prometheus::{Counter, Encoder, Histogram, TextEncoder, register_counter, register_histogram};
 use serde::Deserialize;
 use std::{
     collections::HashMap,
     sync::{Arc, Mutex},
 };
+
+lazy_static::lazy_static! {
+    static ref BROKER_START_COUNTER: Counter = register_counter!("broker_start_total", "Total number of brokers started").unwrap();
+    static ref BROKER_STOP_COUNTER: Counter = register_counter!("broker_stop_total", "Total number of brokers stopped").unwrap();
+    static ref REQUEST_HISTOGRAM: Histogram = register_histogram!("request_duration_seconds", "Request duration in seconds").unwrap();
+}
 
 #[derive(Clone)]
 struct BrokerWrapper {
@@ -72,6 +79,7 @@ struct StatusRequest {
 }
 
 async fn start_broker(info: web::Json<StartRequest>, data: web::Data<AppState>) -> impl Responder {
+    let timer = REQUEST_HISTOGRAM.start_timer();
     let mut brokers_lock = data.brokers.lock().unwrap();
 
     if brokers_lock.contains_key(&info.id) {
@@ -91,26 +99,35 @@ async fn start_broker(info: web::Json<StartRequest>, data: web::Data<AppState>) 
     let wrapper = BrokerWrapper::new(broker);
     brokers_lock.insert(info.id.clone(), wrapper);
 
+    BROKER_START_COUNTER.inc();
+    timer.observe_duration();
     HttpResponse::Ok().json("Broker started")
 }
 
 async fn stop_broker(info: web::Json<StopRequest>, data: web::Data<AppState>) -> impl Responder {
+    let timer = REQUEST_HISTOGRAM.start_timer();
     let mut brokers_lock = data.brokers.lock().unwrap();
 
     if brokers_lock.remove(&info.id).is_some() {
+        BROKER_STOP_COUNTER.inc();
+        timer.observe_duration();
         HttpResponse::Ok().json("Broker stopped")
     } else {
+        timer.observe_duration();
         HttpResponse::BadRequest().json("No broker is running with the given ID")
     }
 }
 
 async fn send_message(info: web::Json<SendRequest>, data: web::Data<AppState>) -> impl Responder {
+    let timer = REQUEST_HISTOGRAM.start_timer();
     let brokers_lock = data.brokers.lock().unwrap();
 
     if let Some(broker) = brokers_lock.get(&info.id) {
         broker.send_message(info.message.clone());
+        timer.observe_duration();
         HttpResponse::Ok().json("Message sent")
     } else {
+        timer.observe_duration();
         HttpResponse::BadRequest().json("No broker is running with the given ID")
     }
 }
@@ -119,15 +136,19 @@ async fn consume_messages(
     info: web::Json<ConsumeRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
+    let timer = REQUEST_HISTOGRAM.start_timer();
     let brokers_lock = data.brokers.lock().unwrap();
 
     if let Some(broker) = brokers_lock.get(&info.id) {
         if let Some(message) = broker.receive_message() {
+            timer.observe_duration();
             HttpResponse::Ok().json(message)
         } else {
+            timer.observe_duration();
             HttpResponse::Ok().json("No messages available")
         }
     } else {
+        timer.observe_duration();
         HttpResponse::BadRequest().json("No broker is running with the given ID")
     }
 }
@@ -136,13 +157,25 @@ async fn broker_status(
     info: web::Json<StatusRequest>,
     data: web::Data<AppState>,
 ) -> impl Responder {
+    let timer = REQUEST_HISTOGRAM.start_timer();
     let brokers_lock = data.brokers.lock().unwrap();
 
     if let Some(broker) = brokers_lock.get(&info.id) {
+        timer.observe_duration();
         HttpResponse::Ok().json(broker.is_healthy())
     } else {
+        timer.observe_duration();
         HttpResponse::BadRequest().json("No broker is running with the given ID")
     }
+}
+
+async fn metrics() -> impl Responder {
+    let encoder = TextEncoder::new();
+    let metric_families = prometheus::gather();
+    let mut buffer = Vec::new();
+    encoder.encode(&metric_families, &mut buffer).unwrap();
+    let response = String::from_utf8(buffer).unwrap();
+    HttpResponse::Ok().body(response)
 }
 
 pub async fn run_server() -> std::io::Result<()> {
@@ -158,6 +191,7 @@ pub async fn run_server() -> std::io::Result<()> {
             .route("/send", web::post().to(send_message))
             .route("/consume", web::post().to(consume_messages))
             .route("/status", web::post().to(broker_status))
+            .route("/metrics", web::get().to(metrics))
     })
     .bind(("127.0.0.1", 8080))?
     .run()
