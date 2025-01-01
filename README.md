@@ -183,7 +183,7 @@ If the allocated memory is small, it may fail.
 
 ## CLI Features
 
-ilgrimage offers a comprehensive Command-Line Interface (CLI) to manage and interact with your message brokers efficiently. Below are the available commands along with their descriptions and usage examples.
+Pilgrimage offers a comprehensive Command-Line Interface (CLI) to manage and interact with your message brokers efficiently. Below are the available commands along with their descriptions and usage examples.
 
 ### start
 
@@ -208,7 +208,7 @@ pilgrimage start --id <BROKER_ID> --partitions <NUMBER_OF_PARTITIONS> --replicat
 
 `pilgrimage start --id broker1 --partitions 3 --replication 2 --storage /data/broker1 --test-mode`
 
-#### stop
+### stop
 
 **Description:**
 Stops the specified broker.
@@ -290,6 +290,14 @@ Checks the status of the specified broker.
     To check the current version of Pilgrimage, use:
 
 `pilgrimage --version`
+
+### Running the CLI
+
+To start the web server:
+
+```sh
+cargo run --bin pilgrimage
+```
 
 ## Web Console API
 
