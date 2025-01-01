@@ -59,6 +59,11 @@ impl Cluster {
     }
 }
 
+impl Default for Cluster {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;

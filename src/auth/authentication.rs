@@ -22,11 +22,17 @@ impl BasicAuthenticator {
     }
 }
 
+impl Default for BasicAuthenticator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Authenticator for BasicAuthenticator {
     fn authenticate(&self, username: &str, password: &str) -> Result<bool, Box<dyn Error>> {
         Ok(self
             .credentials
             .get(username)
-            .map_or(false, |stored_password| stored_password == password))
+            .is_some_and(|stored_password| stored_password == password))
     }
 }

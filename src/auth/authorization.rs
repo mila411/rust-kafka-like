@@ -27,7 +27,7 @@ impl RoleBasedAccessControl {
     pub fn assign_role(&mut self, username: &str, role: &str) {
         self.user_roles
             .entry(username.to_string())
-            .or_insert_with(Vec::new)
+            .or_default()
             .push(role.to_string());
     }
 
@@ -38,12 +38,18 @@ impl RoleBasedAccessControl {
     }
 
     pub fn has_permission(&self, username: &str, required_permission: &Permission) -> bool {
-        self.user_roles.get(username).map_or(false, |roles| {
+        self.user_roles.get(username).is_some_and(|roles| {
             roles.iter().any(|role| {
-                self.roles.get(role).map_or(false, |permissions| {
-                    permissions.contains(required_permission)
-                })
+                self.roles
+                    .get(role)
+                    .is_some_and(|permissions| permissions.contains(required_permission))
             })
         })
+    }
+}
+
+impl Default for RoleBasedAccessControl {
+    fn default() -> Self {
+        Self::new()
     }
 }

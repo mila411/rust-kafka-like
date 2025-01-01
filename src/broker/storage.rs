@@ -44,7 +44,6 @@ impl Storage {
         let file = BufWriter::new(
             OpenOptions::new()
                 .create(true)
-                .write(true)
                 .append(true)
                 .open(path)
                 .map_err(|e| {

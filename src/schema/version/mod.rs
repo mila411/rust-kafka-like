@@ -1,3 +1,4 @@
+use core::fmt;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 
@@ -109,19 +110,11 @@ impl SchemaVersion {
     pub fn increment_patch(&mut self) {
         self.patch += 1;
     }
+}
 
-    /// Returns the version as a string in the format "major.minor.patch".
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// use pilgrimage::schema::version::SchemaVersion;
-    ///
-    /// let version = SchemaVersion::new_with_version(1, 2, 3);
-    /// assert_eq!(version.to_string(), "1.2.3");
-    /// ```
-    pub fn to_string(&self) -> String {
-        format!("{}.{}.{}", self.major, self.minor, self.patch)
+impl fmt::Display for SchemaVersion {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}.{}.{}", self.major, self.minor, self.patch)
     }
 }
 

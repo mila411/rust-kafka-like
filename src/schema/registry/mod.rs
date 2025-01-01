@@ -59,7 +59,7 @@ impl SchemaRegistry {
     /// ```
     pub fn register_schema(&self, topic: &str, definition: &str) -> Result<Schema, String> {
         let mut schemas = self.schemas.write().unwrap();
-        let topic_schemas = schemas.entry(topic.to_string()).or_insert_with(Vec::new);
+        let topic_schemas = schemas.entry(topic.to_string()).or_default();
 
         let new_schema = Schema {
             id: topic_schemas.len() as u32,
@@ -172,6 +172,12 @@ impl SchemaRegistry {
     pub fn get_all_schemas(&self, topic: &str) -> Option<Vec<Schema>> {
         let schemas = self.schemas.read().unwrap();
         schemas.get(topic).cloned()
+    }
+}
+
+impl Default for SchemaRegistry {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
