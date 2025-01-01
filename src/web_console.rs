@@ -365,4 +365,215 @@ mod tests {
         let resp = test::call_service(&mut app, req).await;
         assert!(resp.status().is_success());
     }
+
+    #[actix_rt::test]
+    async fn test_start_broker_already_running() {
+        let state = AppState {
+            brokers: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let mut app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(state.clone()))
+                .route("/start", web::post().to(start_broker)),
+        )
+        .await;
+
+        // Start the broker first
+        let req = test::TestRequest::post()
+            .uri("/start")
+            .set_json(&json!({
+                "id": "broker1",
+                "partitions": 3,
+                "replication": 2,
+                "storage": "/tmp/broker1"
+            }))
+            .to_request();
+
+        let _ = test::call_service(&mut app, req).await;
+
+        // Try to start the same broker again
+        let req = test::TestRequest::post()
+            .uri("/start")
+            .set_json(&json!({
+                "id": "broker1",
+                "partitions": 3,
+                "replication": 2,
+                "storage": "/tmp/broker1"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_rt::test]
+    async fn test_stop_broker_not_running() {
+        let state = AppState {
+            brokers: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let mut app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(state.clone()))
+                .route("/stop", web::post().to(stop_broker)),
+        )
+        .await;
+
+        // Try to stop a broker that is not running
+        let req = test::TestRequest::post()
+            .uri("/stop")
+            .set_json(&json!({
+                "id": "broker1"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_rt::test]
+    async fn test_send_message_no_broker() {
+        let state = AppState {
+            brokers: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let mut app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(state.clone()))
+                .route("/send", web::post().to(send_message)),
+        )
+        .await;
+
+        // Try to send a message to a broker that is not running
+        let req = test::TestRequest::post()
+            .uri("/send")
+            .set_json(&json!({
+                "id": "broker1",
+                "message": "Hello, World!"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_rt::test]
+    async fn test_consume_messages_no_broker() {
+        let state = AppState {
+            brokers: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let mut app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(state.clone()))
+                .route("/consume", web::post().to(consume_messages)),
+        )
+        .await;
+
+        // Try to consume messages from a broker that is not running
+        let req = test::TestRequest::post()
+            .uri("/consume")
+            .set_json(&json!({
+                "id": "broker1"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_rt::test]
+    async fn test_broker_status_no_broker() {
+        let state = AppState {
+            brokers: Arc::new(Mutex::new(HashMap::new())),
+        };
+
+        let mut app = test::init_service(
+            App::new()
+                .app_data(web::Data::new(state.clone()))
+                .route("/status", web::post().to(broker_status)),
+        )
+        .await;
+
+        // Try to check the status of a broker that is not running
+        let req = test::TestRequest::post()
+            .uri("/status")
+            .set_json(&json!({
+                "id": "broker1"
+            }))
+            .to_request();
+
+        let resp = test::call_service(&mut app, req).await;
+        assert_eq!(resp.status(), actix_web::http::StatusCode::BAD_REQUEST);
+    }
+
+    #[actix_rt::test]
+    async fn test_run_server() {
+        let srv = actix_test::start(|| {
+            App::new()
+                .app_data(AppState {
+                    brokers: Arc::new(Mutex::new(HashMap::new())),
+                })
+                .route("/start", web::post().to(start_broker))
+                .route("/stop", web::post().to(stop_broker))
+                .route("/send", web::post().to(send_message))
+                .route("/consume", web::post().to(consume_messages))
+                .route("/status", web::post().to(broker_status))
+        });
+
+        // Start the broker
+        let req = srv
+            .post("/start")
+            .send_json(&json!({
+                "id": "broker1",
+                "partitions": 3,
+                "replication": 2,
+                "storage": "/tmp/broker1"
+            }))
+            .await
+            .unwrap();
+        assert!(req.status().is_success());
+
+        // Check the broker status
+        let req = srv
+            .post("/status")
+            .send_json(&json!({
+                "id": "broker1"
+            }))
+            .await
+            .unwrap();
+        assert!(req.status().is_success());
+
+        // Send a message
+        let req = srv
+            .post("/send")
+            .send_json(&json!({
+                "id": "broker1",
+                "message": "Hello, World!"
+            }))
+            .await
+            .unwrap();
+        assert!(req.status().is_success());
+
+        // Consume the message
+        let req = srv
+            .post("/consume")
+            .send_json(&json!({
+                "id": "broker1"
+            }))
+            .await
+            .unwrap();
+        assert!(req.status().is_success());
+
+        // Stop the broker
+        let req = srv
+            .post("/stop")
+            .send_json(&json!({
+                "id": "broker1"
+            }))
+            .await
+            .unwrap();
+        assert!(req.status().is_success());
+    }
 }
