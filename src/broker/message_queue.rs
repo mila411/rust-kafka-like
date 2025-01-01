@@ -15,7 +15,7 @@ impl MessageQueue {
         auto_scaler.clone().monitor_and_scale(check_interval);
 
         MessageQueue {
-            queue: Mutex::new(VecDeque::new()),
+            queue: Mutex::new(VecDeque::default()),
             condvar: Condvar::new(),
             auto_scaler,
         }

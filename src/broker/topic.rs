@@ -75,7 +75,7 @@ impl Topic {
                 messages: Vec::new(),
                 replicas: (0..replication_factor)
                     .map(|_| Replica {
-                        broker_id: String::new(),
+                        broker_id: String::default(),
                         messages: Vec::new(),
                     })
                     .collect(),
