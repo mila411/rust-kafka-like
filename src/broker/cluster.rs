@@ -76,7 +76,7 @@ mod tests {
 
     #[test]
     fn test_cluster_initialization() {
-        let cluster = Cluster::new();
+        let cluster = Cluster::default();
 
         let broker1 = Arc::new(Broker::new("broker1", 3, 2, "logs"));
         let broker2 = Arc::new(Broker::new("broker2", 3, 2, "logs"));
@@ -92,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_broker_removal_on_unhealthy() {
-        let cluster = Cluster::new();
+        let cluster = Cluster::default();
 
         let broker1 = Arc::new(Broker::new("broker1", 3, 2, "logs"));
         let broker2 = Arc::new(Broker::new("broker2", 3, 2, "logs"));

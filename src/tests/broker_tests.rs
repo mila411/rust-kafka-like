@@ -198,7 +198,7 @@ fn test_consumer_group_message_distribution() {
     let mut broker = Broker::new("broker1", 3, 2, "logs");
     broker.create_topic("test_topic", None).unwrap();
 
-    let received_count = Arc::new((Mutex::new(0), Condvar::new()));
+    let received_count = Arc::new((Mutex::new(0), Condvar::default()));
     let total_messages = 10;
 
     let received_messages = Arc::new(Mutex::new(Vec::new()));
@@ -323,7 +323,7 @@ fn test_rebalance() {
         let mut partitions = broker.partitions.lock().unwrap();
         for i in 0..3 {
             partitions.insert(i, Partition {
-                node_id: String::new(),
+                node_id: String::default(),
             });
         }
     }
@@ -483,7 +483,7 @@ fn test_rotate_logs_file_in_use() {
     let broker = create_test_broker_with_path(log_path.to_str().unwrap());
     broker.rotate_logs();
 
-    drop(file);
+    std::mem::drop(file);
 }
 
 #[test]

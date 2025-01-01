@@ -187,7 +187,7 @@ mod tests {
 
     #[test]
     fn test_schema_registration() {
-        let registry = SchemaRegistry::new();
+        let registry = SchemaRegistry::default();
         let schema_def =
             r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
 
@@ -201,7 +201,7 @@ mod tests {
 
     #[test]
     fn test_schema_compatibility() {
-        let registry = SchemaRegistry::new();
+        let registry = SchemaRegistry::default();
 
         // Register the initial schema
         let schema1 = r#"{"type":"record","name":"test","fields":[{"name":"id","type":"string"}]}"#;
