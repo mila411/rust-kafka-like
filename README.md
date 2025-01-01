@@ -41,8 +41,10 @@ This is a Rust implementation of a distributed messaging system. It uses a simpl
 - Message processing in parallel
 - Authentication and Authorization Mechanisms
 - Data Encryption
+- CLI based console
+- WEB based console
 
-## Usage
+## Basic Usage
 
 ### Dependency
 
@@ -158,12 +160,6 @@ fn main() {
 - Authentication processing example
 - Sending and receiving messages as an authenticated user
 
-### License
-
-MIT
-
-### Examples
-
 To execute a basic example, use the following command:
 
 ```bash
@@ -180,11 +176,11 @@ If the allocated memory is small, it may fail.
 
 `cargo bench`
 
-### CLI Features
+## CLI Features
 
 ilgrimage offers a comprehensive Command-Line Interface (CLI) to manage and interact with your message brokers efficiently. Below are the available commands along with their descriptions and usage examples.
 
-#### start
+### start
 
 **Description:**
 Starts the broker with the specified configurations.
@@ -207,7 +203,7 @@ pilgrimage start --id <BROKER_ID> --partitions <NUMBER_OF_PARTITIONS> --replicat
 
 `pilgrimage start --id broker1 --partitions 3 --replication 2 --storage /data/broker1 --test-mode`
 
-##### stop
+#### stop
 
 **Description:**
 Stops the specified broker.
@@ -224,7 +220,7 @@ Stops the specified broker.
 
 `pilgrimage stop --id broker1`
 
-#### send
+### send
 
 **Description:**
 
@@ -243,7 +239,7 @@ Sends a message to the specified broker.
 
 `pilgrimage send broker1 "Hello, World!"`
 
-#### consume
+### consume
 
 **Description:**
 
@@ -261,7 +257,7 @@ Consumes messages from the specified broker.
 
 `pilgrimage consume broker1`
 
-#### status
+### status
 
 **Description:**
 
@@ -278,7 +274,7 @@ Checks the status of the specified broker.
 
 `pilgrimage status --id broker1`
 
-#### Additional Information
+### Additional Information
 
 - **Help Command:**
     To view all available commands and options, use the `help` command:
@@ -290,6 +286,147 @@ Checks the status of the specified broker.
 
 `pilgrimage --version`
 
+## Web Console API
+
+Pilgrimage provides a REST API for managing brokers through HTTP requests. The server runs on `http://localhost:8080` by default.
+
+### Available Endpoints
+
+#### Start Broker
+
+Starts a new broker instance.
+
+**Endpoint:** `POST /start`
+**Request:**
+
+```json
+{
+    "id": "broker1",
+    "partitions": 3,
+    "replication": 2,
+    "storage": "/tmp/broker1"
+}
+```
+
+**Example:**
+
+```sh
+curl -X POST http://localhost:8080/start \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "broker1",
+    "partitions": 3,
+    "replication": 2,
+    "storage": "/tmp/broker1"
+  }'
+```
+
+#### Stop Broker
+
+Stops a running broker instance.
+
+**Endpoint**: `POST /stop`
+**Request:**
+
+```json
+{
+    "id": "broker1"
+}
+```
+
+**Example:**
+
+```sh
+curl -X POST http://localhost:8080/stop \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "broker1"
+  }'
+```
+
+#### Send Message
+
+Sends a message to the broker.
+
+**Endpoint**: `POST /send`
+**Request:**
+
+```json
+{
+    "id": "broker1",
+    "message": "Hello, World!"
+}
+```
+
+**Example:**
+
+```sh
+curl -X POST http://localhost:8080/send \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "broker1",
+    "message": "Hello, World!"
+  }'
+```
+
+#### Consume Messages
+
+Consumes messages from the broker.
+
+**Endpoint**: `POST /consume`
+
+**Request:**
+
+```sh
+{
+    "id": "broker1"
+}
+```
+
+**Example:**
+
+```sh
+curl -X POST http://localhost:8080/consume \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "broker1"
+  }'
+```
+
+#### Check Status
+
+Checks the status of the broker.
+
+**Endpoint**: `POST /status`
+
+`Request:`
+
+```sh
+{
+    "id": "broker1"
+}
+```
+
+**Example:**
+
+```sh
+curl -X POST http://localhost:8080/status \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "broker1"
+  }'
+```
+
+### Running the Web Server
+
+To start the web server:
+
+```sh
+cargo run --bin web
+```
+
+The server will be available at `http://localhost:8080`.
+
 ## Version increment on release
 
 - The commit message is parsed and the version of either major, minor or patch is incremented.
@@ -298,3 +435,7 @@ Checks the status of the specified broker.
 - The changes and tag are pushed to the remote repository.
 
 The version is automatically incremented based on the commit message. Here, we treat `feat` as minor, `fix` as patch, and `BREAKING CHANGE` as major.
+
+### License
+
+MIT
