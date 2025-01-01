@@ -4,7 +4,7 @@
 
 <p align="center">
     <em>
-        Very few dependencies
+        I will draw a picture of a crab someday
     </em>
 </p>
 
