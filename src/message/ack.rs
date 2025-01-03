@@ -1,5 +1,22 @@
 use std::fmt;
+use uuid::Uuid;
 
+#[derive(Debug, Clone)]
+pub struct Message {
+    pub id: Uuid,
+    pub content: String,
+    pub timestamp: std::time::SystemTime,
+}
+
+impl Message {
+    pub fn new(content: String) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            content,
+            timestamp: std::time::SystemTime::now(),
+        }
+    }
+}
 #[derive(Debug, Clone)]
 pub struct MessageAck {
     pub id: u64,

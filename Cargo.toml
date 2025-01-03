@@ -38,6 +38,9 @@ actix-web = "4"
 tokio = { version = "1", features = ["full"] }
 prometheus = "0.13"
 lazy_static = "1.4"
+uuid = { version = "1", features = ["v4"] }
+thiserror = "1.0"
+lapin = "1.6"
 
 [dev-dependencies]
 criterion = "0.3"

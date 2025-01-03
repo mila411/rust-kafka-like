@@ -8,6 +8,8 @@ pub enum BrokerError {
     AckError(String),
     IoError(std::io::Error),
     ScalingError(String),
+    DuplicateMessage,
+    TransactionError,
 }
 
 impl From<std::io::Error> for BrokerError {
@@ -48,6 +50,8 @@ impl fmt::Display for BrokerError {
             BrokerError::AckError(msg) => write!(f, "Acknowledgment error: {}", msg),
             BrokerError::IoError(err) => write!(f, "IO error: {}", err),
             BrokerError::ScalingError(msg) => write!(f, "Scaling Error: {}", msg),
+            BrokerError::DuplicateMessage => write!(f, "Duplicate message ID"),
+            BrokerError::TransactionError => write!(f, "Transaction failed"),
         }
     }
 }

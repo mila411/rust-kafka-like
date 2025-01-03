@@ -8,6 +8,9 @@ pub mod node_management;
 pub mod scaling;
 pub mod storage;
 pub mod topic;
+pub mod transaction;
+
+use uuid::Uuid;
 
 use crate::broker::consumer::group::ConsumerGroup;
 use crate::broker::error::BrokerError;
@@ -17,11 +20,13 @@ use crate::broker::message_queue::MessageQueue;
 use crate::broker::node_management::{check_node_health, recover_node};
 use crate::broker::storage::Storage;
 use crate::broker::topic::Topic;
+use crate::broker::transaction::Transaction;
+use crate::message::ack::Message;
 use crate::message::ack::MessageAck;
 use crate::subscriber::types::Subscriber;
-use std::collections::HashMap;
-use std::fs::File;
-use std::io::Write;
+use std::collections::{HashMap, HashSet};
+use std::fs::{File, OpenOptions};
+use std::io::{self, BufRead, BufReader, Write};
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
@@ -52,6 +57,7 @@ pub struct Broker {
     pub leader: Arc<Mutex<Option<String>>>,
     pub message_queue: Arc<MessageQueue>,
     log_path: String,
+    pub processed_message_ids: Arc<Mutex<HashSet<Uuid>>>,
 }
 
 impl Broker {
@@ -107,9 +113,44 @@ impl Broker {
                 check_interval,
             )),
             log_path: log_path.to_string(),
+            processed_message_ids: Arc::new(Mutex::new(HashSet::new())),
         };
         broker.monitor_nodes();
         broker
+    }
+
+    pub fn send_message_transaction(
+        &self,
+        transaction: &mut Transaction,
+        message: Message,
+    ) -> Result<(), BrokerError> {
+        if self.process_message(message.clone())? {
+            transaction.add_message(message);
+            Ok(())
+        } else {
+            Err(BrokerError::TransactionError)
+        }
+    }
+
+    pub fn process_message(&self, message: Message) -> Result<bool, BrokerError> {
+        let mut processed = self.processed_message_ids.lock().unwrap();
+        if processed.contains(&message.id) {
+            return Err(BrokerError::DuplicateMessage);
+        }
+        processed.insert(message.id);
+        // メッセージの処理ロジックをここに追加
+        Ok(true)
+    }
+
+    pub fn send_and_process(&self, message: Message) -> Result<(), BrokerError> {
+        let mut transaction = self.begin_transaction();
+        self.send_message_transaction(&mut transaction, message)?;
+        transaction.commit()?;
+        Ok(())
+    }
+
+    pub fn begin_transaction(&self) -> Transaction {
+        Transaction::new(Arc::clone(&self.storage))
     }
 
     pub fn perform_operation_with_retry<F, T, E>(
@@ -175,12 +216,56 @@ impl Broker {
         true
     }
 
-    pub fn send_message(&self, message: String) {
+    pub async fn send_message(&self, message: String) -> Result<(), String> {
         self.message_queue.send(message);
+
+        match self.receive_ack().await {
+            Ok(_) => Ok(()),
+            Err(e) => Err(format!("Failed to receive ACK: {}", e)),
+        }
+    }
+
+    async fn receive_ack(&self) -> Result<(), String> {
+        // ACK受信ロジック
+        // 成功時はOk(()), 失敗時はErr(String)を返す
+        Ok(())
     }
 
     pub fn receive_message(&self) -> Option<String> {
         Some(self.message_queue.receive())
+    }
+
+    fn save_processed_message_id(&self, message_id: &str) -> io::Result<()> {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("processed_message_ids.txt")?;
+        writeln!(file, "{}", message_id)?;
+        Ok(())
+    }
+
+    fn load_processed_message_ids(&self) -> io::Result<Vec<String>> {
+        let file = File::open("processed_message_ids.txt")?;
+        let reader = BufReader::new(file);
+        let mut message_ids = Vec::new();
+        for line in reader.lines() {
+            message_ids.push(line?);
+        }
+        Ok(message_ids)
+    }
+
+    pub fn is_message_processed(&self, message_id: &Uuid) -> bool {
+        let messages = self
+            .storage
+            .lock()
+            .unwrap()
+            .load_messages()
+            .unwrap_or_default();
+        messages.iter().any(|msg| &msg.id == message_id)
+    }
+
+    pub fn save_message(&self, message: &Message) -> io::Result<()> {
+        self.storage.lock().unwrap().save_message(message)
     }
 
     pub fn replicate_data(&self, partition_id: usize, data: &[u8]) {

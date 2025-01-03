@@ -1,6 +1,11 @@
+use uuid::Uuid;
+
+use crate::broker::error::BrokerError;
+use crate::message::ack::Message;
 use std::fs::{self, File, OpenOptions};
 use std::io::{self, BufRead, BufReader, BufWriter, Write};
 use std::path::Path;
+use std::time::SystemTime;
 
 #[derive(Debug)]
 pub struct Storage {
@@ -136,6 +141,52 @@ impl Storage {
         writeln!(self.file, "Initialized").map_err(|e| e.to_string())?;
         self.available = true;
         Ok(())
+    }
+
+    pub fn save_message(&mut self, message: &Message) -> io::Result<()> {
+        let mut file = OpenOptions::new()
+            .append(true)
+            .create(true)
+            .open("messages.txt")?;
+        writeln!(
+            file,
+            "{},{},{}",
+            message.id,
+            message.content,
+            message
+                .timestamp
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+        )?;
+        Ok(())
+    }
+
+    pub fn load_messages(&self) -> io::Result<Vec<Message>> {
+        let file = File::open("messages.txt")?;
+        let reader = BufReader::new(file);
+        let mut messages = Vec::new();
+        for line in reader.lines() {
+            let line = line?;
+            let parts: Vec<&str> = line.split(',').collect();
+            if parts.len() == 3 {
+                let id = Uuid::parse_str(parts[0]).unwrap();
+                let content = parts[1].to_string();
+                let timestamp = SystemTime::UNIX_EPOCH
+                    + std::time::Duration::from_secs(parts[2].parse().unwrap());
+                messages.push(Message {
+                    id,
+                    content,
+                    timestamp,
+                });
+            }
+        }
+        Ok(messages)
+    }
+
+    pub fn is_message_processed(&self, message_id: &Uuid) -> bool {
+        let messages = self.load_messages().unwrap_or_default();
+        messages.iter().any(|msg| &msg.id == message_id)
     }
 }
 
